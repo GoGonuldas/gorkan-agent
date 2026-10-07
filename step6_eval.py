@@ -7,7 +7,8 @@ Adım 5'in tam ajanı (okuma, yazma, komut) ölçülür. Adım 5'te öğrenilenl
   - Her çalıştırma proje dosyalarının geçici bir kopyasında yapılır: gerçek sandbox/ etkilenmez, her deneme temiz başlar.
 
 Çalıştır:  .venv/bin/python step6_eval.py [--tekrar 3] [--think kapali|acik|ikisi] [--gorev 1 5 9]
-Sonuç:     eval_sonuclar/<zaman>.json + ekranda özet tablo
+                                          [--model AD] [--host URL]
+Sonuç:     eval_sonuclar/<zaman>-<model>.json + ekranda özet tablo
 """
 import argparse
 import contextlib
@@ -24,7 +25,7 @@ from pathlib import Path
 import step2_tools as okuma
 import step4_write as yazma
 import step5_shell as kabuk
-from step3_agent import MODEL, ajan_turu
+import step3_agent as ajan
 
 PROJE = Path(__file__).resolve().parent
 KOPYALANACAK = ["README.md", "PLAN.md", "PROGRESS.md", *sorted(p.name for p in PROJE.glob("step*.py"))]
@@ -163,7 +164,7 @@ def calistir(gorev, think, maks_tur=10):
     try:
         mesajlar = [{"role": "system", "content": kabuk.SYSTEM}, {"role": "user", "content": gorev["istek"]}]
         with contextlib.redirect_stdout(log):
-            cevap = ajan_turu(mesajlar, think, maks_tur, kabuk.TARIFLER, kayitli_calistir)
+            cevap = ajan.ajan_turu(mesajlar, think, maks_tur, kabuk.TARIFLER, kayitli_calistir)
         basarili, not_ = gorev["kontrol"](cevap, kok, kayit)
     except Exception as e:  # ajan veya kontrol çökerse: başarısız say, devam et
         cevap, basarili, not_ = "", False, f"İSTİSNA: {e!r}"
@@ -203,12 +204,16 @@ def main():
     ap.add_argument("--tekrar", type=int, default=3)
     ap.add_argument("--think", choices=["kapali", "acik", "ikisi"], default="ikisi")
     ap.add_argument("--gorev", type=int, nargs="*", help="sadece bu görev numaraları")
+    ap.add_argument("--model", help="Ollama model adı (varsayılan step3_agent.MODEL)")
+    ap.add_argument("--host", help="Ollama sunucusu, ör. http://gorkans-mac-mini.local:11434")
     args = ap.parse_args()
 
     modlar = {"kapali": [False], "acik": [True], "ikisi": [False, True]}[args.think]
+    if not ajan.ayarla(args.model, args.host, think=True):  # model düşünemiyorsa sadece kapalı ölç
+        modlar = [False]
     gorevler = [g for g in GOREVLER if not args.gorev or g["no"] in args.gorev]
     toplam = len(modlar) * len(gorevler) * args.tekrar
-    print(f"Model: {MODEL}  görev: {len(gorevler)}  tekrar: {args.tekrar}  think: {modlar}  → {toplam} çalıştırma")
+    print(f"Model: {ajan.MODEL} @ {args.host or 'bu bilgisayar'}  görev: {len(gorevler)}  tekrar: {args.tekrar}  think: {modlar}  → {toplam} çalıştırma")
 
     sonuclar = []
     for think in modlar:
@@ -221,8 +226,8 @@ def main():
 
     klasor = PROJE / "eval_sonuclar"
     klasor.mkdir(exist_ok=True)
-    dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}.json"
-    dosya.write_text(json.dumps({"model": MODEL, "tekrar": args.tekrar, "sonuclar": sonuclar},
+    dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}-{ajan.MODEL.replace(':', '_').replace('/', '_')}.json"
+    dosya.write_text(json.dumps({"model": ajan.MODEL, "host": args.host, "tekrar": args.tekrar, "sonuclar": sonuclar},
                                 ensure_ascii=False, indent=1), encoding="utf-8")
     ozet(sonuclar, modlar)
     print(f"\nayrıntı: {dosya.relative_to(PROJE)}")
