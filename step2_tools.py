@@ -31,7 +31,11 @@ def guvenli_yol(path):
     """Yolu proje klasörüne göre çözer; dışarı çıkıyorsa hata verir."""
     yol = (KOK / path).resolve()
     if not yol.is_relative_to(KOK):
-        raise ValueError(f"izin yok: '{path}' proje klasörünün dışında")
+        # mesaj modele gider: sadece "yasak" demek yetmez, nasıl düzelteceğini de söyle
+        raise ValueError(
+            f"'{path}' proje klasörünün dışında. Yollar proje köküne göre ve başında '/' olmadan "
+            "yazılmalı, ör. 'README.md' veya 'sandbox/x.txt'."
+        )
     return yol
 
 

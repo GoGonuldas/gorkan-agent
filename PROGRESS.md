@@ -83,3 +83,38 @@
   boş cevap gördü.
 
 **Sıradaki:** Adım 3 — ajan döngüsü (model araç istemeyi bırakana kadar araç → sonuç → model, tur sınırıyla).
+
+## Adım 3 — Ajan döngüsü (2026-10-07) ✅
+
+**Yapılan**
+- `step3_agent.py`: model araç istemeyi bırakana kadar `model → araç → sonuç → model` döngüsü. Araçlar Adım 2'den
+  import ediliyor. Tur sınırı (`--maks-tur`, varsayılan 10) aşılırsa döngü durup bunu açıkça söylüyor.
+  `--think` ile qwen3'ün düşünme modu açılabiliyor.
+- `step2_tools.py`'de klasör kilidinin hata mesajı değişti: eskisi sadece "izin yok: … proje klasörünün dışında" diyordu,
+  yenisi yolun nasıl yazılacağını söylüyor ("başında '/' olmadan, ör. 'README.md'"). Kilidin kendisi aynı.
+
+**Test**
+| Görev | Ne oldu |
+|---|---|
+| "En küçük numaralı adımın dosyası ne yapıyor? Önce listele, sonra oku." (Adım 2'de takılmıştı) | 2 tur: `list_files` → `read_file("step0_hello.py")` → doğru açıklama ✅ |
+| Aynı görev, `--maks-tur 1` | 1 turdan sonra "(durduruldu: 1 tur sınırına ulaşıldı…)" ✅ |
+| "Her stepN dosyasında MODEL değişkeni hangi modele ayarlı?" — **eski** hata mesajıyla | ❌ `/PROGRESS.md`, `/README.md`, `/PLAN.md` denedi, hepsi reddedildi; step dosyalarını hiç okumadı; "dosya izinleri kontrol edilmeli" dedi |
+| Aynı görev, yeni hata mesajı, think kapalı, deneme 1 | Yanlış yolu düzeltti ama step dosyalarını okumadı (PROGRESS, PLAN, README okudu); ❌ **soruyu cevaplamak yerine sahte bir "Adım 3 ✅" PROGRESS bölümü uydurdu** |
+| deneme 2 | `/home/runner/work/...` diye yol uydurdu, düzeltti, 4 dosyayı da okudu → ✅ "qwen3:8b" |
+| deneme 3 | Yine uydurma yol, düzeltti; `step0_hello.py`'yi **okumadan** "her dosyada qwen3:8b" dedi → cevap doğru ama kanıtsız ⚠️ |
+| Aynı görev, `--think` | Hiç hatalı yol yok, 4 dosyayı sırayla okudu → ✅ doğru ve eksiksiz (57 sn) |
+
+Özet (az örnek!): think kapalı 3 denemenin 1'i tamamen doğru, 1'i doğru ama eksik okumayla, 1'i yanlış; think açık 1/1.
+
+**Dersler**
+- Döngü, Adım 2'deki "boş cevap" sorununu çözdü; tur sınırı da beklendiği gibi çalışıyor.
+- **Hata mesajları modelin talimatıdır.** "izin yok" deyince model sorunu "dosya izni" sandı; nasıl düzelteceğini
+  söyleyen mesajdan sonra 3 denemenin 3'ünde yanlış yolu bir sonraki turda düzeltti.
+- Model eğitim verisinden ezberlediği yolları uyduruyor (`/home/runner/work/...`); program bunları kilitle yakalıyor.
+- Döngü olunca yeni bir hata türü çıktı: **görevden sapma**. Deneme 1'de model, okuduğu PROGRESS.md'nin biçimini taklit
+  edip olmayan bir bölüm uydurdu. Ayrıca "her dosyada" deyip bir dosyayı okumadan atladı.
+- Düşünme açıkken bu görevde daha düzenli çalıştı ama 1 deneme kanıt değil, yavaşlık da maliyet. Adım 6'daki test
+  setinde think açık/kapalı karşılaştırılmalı.
+- Model her çalıştırmada farklı davranıyor; tek bir denemeye bakıp "çalışıyor" demek yanıltıcı.
+
+**Sıradaki:** Adım 4 — yazma araçları + onay (`write_file`, `edit_file`, diff göster, onay al).
