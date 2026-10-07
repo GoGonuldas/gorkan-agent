@@ -16,7 +16,7 @@ import argparse
 
 import ollama
 
-from step2_tools import ARACLAR, SYSTEM, TARIFLER, araci_calistir
+from step2_tools import SYSTEM, TARIFLER, araci_calistir
 
 MODEL = "qwen3:8b"
 
@@ -42,14 +42,19 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
     return f"(durduruldu: {maks_tur} tur sınırına ulaşıldı, model hâlâ araç istiyordu)"
 
 
-def main():
+def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir):
+    """Terminal sohbeti: argümanları okur, kullanıcıdan istek alır, her isteği ajan_turu ile işler.
+
+    Sonraki adımlar kendi system mesajı ve araç setiyle bunu çağırır.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--think", action="store_true", help="qwen3'ün düşünme modunu aç")
     ap.add_argument("--maks-tur", type=int, default=10, help="bir istek için en fazla araç turu")
     args = ap.parse_args()
 
-    mesajlar = [{"role": "system", "content": SYSTEM}]
-    print(f"Model: {MODEL}  araçlar: {', '.join(ARACLAR)}  think={args.think}  maks-tur={args.maks_tur}")
+    mesajlar = [{"role": "system", "content": system}]
+    adlar = ", ".join(t["function"]["name"] for t in tarifler)
+    print(f"Model: {MODEL}  araçlar: {adlar}  think={args.think}  maks-tur={args.maks_tur}")
 
     while True:
         try:
@@ -67,8 +72,8 @@ def main():
             continue
 
         mesajlar.append({"role": "user", "content": soru})
-        print(f"model> {ajan_turu(mesajlar, args.think, args.maks_tur)}")
+        print(f"model> {ajan_turu(mesajlar, args.think, args.maks_tur, tarifler, calistir)}")
 
 
 if __name__ == "__main__":
-    main()
+    sohbet()

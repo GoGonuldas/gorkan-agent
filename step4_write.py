@@ -11,12 +11,11 @@ Güvenlik:
 Çalıştır:  .venv/bin/python step4_write.py [--think] [--maks-tur N]
 Komutlar:  /sifirla   /cikis
 """
-import argparse
 import difflib
 import json
 
 import step2_tools as okuma
-from step3_agent import MODEL, ajan_turu
+from step3_agent import sohbet
 
 KUM = okuma.KOK / "sandbox"
 
@@ -51,15 +50,20 @@ def onay_al(path, eski, yeni):
         fromfile=f"{path} (önce)", tofile=f"{path} (sonra)", lineterm="",
     )
     print("\n".join(fark) or "  (fark yok)")
+    return sor(f"{path} değişsin mi?")
+
+
+def sor(soru):
+    """Kullanıcıya evet/hayır sorar. Onay → None, red → modele gidecek açıklama."""
     try:
-        cevap = input(f"  ✋ {path} değişsin mi? [e/h] ").strip().lower()
+        cevap = input(f"  ✋ {soru} [e/h] ").strip().lower()
         if cevap == "e":
             return None
         neden = input("  neden? (boş geçebilirsin) ").strip()
     except (EOFError, KeyboardInterrupt):  # cevap alınamazsa güvenli taraf: reddet
         print()
         neden = ""
-    return "REDDEDİLDİ: kullanıcı bu değişikliği onaylamadı, dosya değişmedi." + (f" Neden: {neden}" if neden else "")
+    return "REDDEDİLDİ: kullanıcı onaylamadı, hiçbir şey yapılmadı." + (f" Neden: {neden}" if neden else "")
 
 
 def write_file(path, content):
@@ -134,46 +138,17 @@ TARIFLER = okuma.TARIFLER + [
 ]
 
 
-def araci_calistir(cagri):
+def araci_calistir(cagri, araclar=ARACLAR):
     ad, argumanlar = cagri.function.name, cagri.function.arguments or {}
     goster = {k: (v[:60] + "…" if isinstance(v, str) and len(v) > 60 else v) for k, v in argumanlar.items()}
     print(f"  🔧 {ad}({json.dumps(goster, ensure_ascii=False)})")
-    if ad not in ARACLAR:
+    if ad not in araclar:
         return f"HATA: '{ad}' diye bir araç yok"
     try:
-        return ARACLAR[ad](**argumanlar)
+        return araclar[ad](**argumanlar)
     except Exception as e:
         return f"HATA: {e}"
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--think", action="store_true", help="qwen3'ün düşünme modunu aç")
-    ap.add_argument("--maks-tur", type=int, default=10, help="bir istek için en fazla araç turu")
-    args = ap.parse_args()
-
-    mesajlar = [{"role": "system", "content": SYSTEM}]
-    print(f"Model: {MODEL}  araçlar: {', '.join(ARACLAR)}  think={args.think}  maks-tur={args.maks_tur}")
-
-    while True:
-        try:
-            soru = input("\nsen> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            break
-        if not soru:
-            continue
-        if soru == "/cikis":
-            break
-        if soru == "/sifirla":
-            mesajlar = mesajlar[:1]
-            print("(geçmiş silindi)")
-            continue
-
-        mesajlar.append({"role": "user", "content": soru})
-        cevap = ajan_turu(mesajlar, args.think, args.maks_tur, tarifler=TARIFLER, calistir=araci_calistir)
-        print(f"model> {cevap}")
-
-
 if __name__ == "__main__":
-    main()
+    sohbet(SYSTEM, TARIFLER, araci_calistir)
