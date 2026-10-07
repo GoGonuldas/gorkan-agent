@@ -118,3 +118,47 @@
 - Model her çalıştırmada farklı davranıyor; tek bir denemeye bakıp "çalışıyor" demek yanıltıcı.
 
 **Sıradaki:** Adım 4 — yazma araçları + onay (`write_file`, `edit_file`, diff göster, onay al).
+
+## Adım 4 — Yazma araçları + onay (2026-10-07) ✅
+
+**Yapılan**
+- `step4_write.py`: okuma araçlarına `write_file(path, content)` ve `edit_file(path, old_text, new_text)` eklendi.
+  Döngü Adım 3'ten (`ajan_turu` artık araç setini parametre olarak alıyor; Adım 3'ün davranışı aynı).
+- **Yazma sadece `sandbox/` içinde** (okuma tüm projede). Ajan kendi kodunu bozamaz.
+- **Onay:** diske yazmadan önce program diff gösterip `[e/h]` soruyor. Red → "REDDEDİLDİ … Neden: …" modele gidiyor.
+  Girdi alınamazsa (Ctrl+D, boru biter) güvenli taraf: red. Onayı program soruyor, model atlayamaz.
+- `edit_file` kuralları: `old_text` dosyada tam 1 kez geçmeli; boş olamaz; `new_text` ile aynı olamaz.
+
+**Test — kurallar (modelsiz, sahte onay cevaplarıyla)**: `README.md`, `../x.txt`, `sandbox/../step0_hello.py` yazma
+engellendi ✅; yeni dosya + onay → yazıldı ✅; üzerine yazma + red → dosya değişmedi, neden modele gitti ✅;
+`old_text` yok / 2 kez geçiyor / boş / new_text ile aynı → hata ✅.
+
+**Test — modelle**
+| Senaryo | Ne oldu |
+|---|---|
+| A: "sandbox/selam.py, 'Merhaba Görkan' yazdırsın" + onay | `write_file` → diff → yazıldı, çalışıyor ✅ |
+| B: "mesajı 'Merhaba dünya' yap" → red, neden: "Görkan kalsın, sonuna ünlem ekle" | Önce okudu, edit önerdi; redden sonra nedene uyup `Merhaba Görkan!` yaptı ✅ |
+| C: "README.md'nin sonuna 'deneme' ekle" (ilk sürüm) | ❌ README yerine sessizce **yeni bir `sandbox/README.md`** (sadece "deneme") yazmaya kalktı; onay verilmediği için yazılmadı. Sonra "onay verin" dedi, README'nin değiştirilemeyeceğini söylemedi |
+| C, düzeltmeden sonra ×3 | 3/3: README'yi denedi, engellendi, "sandbox dışında, değiştirilemez" dedi; başka dosyaya yazmadı ✅ |
+| "ünlemi kaldır" (ilk sürüm) | ❌ `ü` harfini silmeye çalıştı, sonra old_text = new_text ile "fark yok" bir düzenleme istedi; program yine onay sordu, onaylandı, model **"başarıyla düzenlendi" dedi — hiçbir şey değişmemişti** |
+| "ünlemi kaldır", aynı-metin kuralı eklendikten sonra ×3, think kapalı | Dosya hiç değişmedi ✅ ama görev 0/3: hep `ü`yu silmeye çalıştı; birinde "zaten tamamlandı" diye yanlış söyledi |
+| "! işaretini kaldır", think kapalı ×2 | 2/2 ✅ |
+| "ünlemi kaldır", think açık ×2 | 2/2 ✅ (önce okudu, sonra düzenledi) |
+
+C'den sonra yapılan düzeltmeler: (1) hata mesajındaki "ör. `sandbox/<ad>`" önerisi kaldırıldı, yerine "başka dosyaya
+yazma, kullanıcıya söyle" yazıldı; (2) system mesajına aynı kural eklendi; (3) diff, dosya satır sonuyla bitmediğinde
+`-`/`+` satırlarını yapıştırıyordu (`-print(…)+print(…)`), düzeltildi.
+
+**Dersler**
+- **Model isteği sessizce değiştirebilir**: "README'ye ekle" → "sandbox'ta yeni bir README yaz". Bunu bizim hata
+  mesajımızdaki "ör. sandbox/README.md" önerisi davet ediyordu. Hata mesajı "nasıl düzelteceğini" söylerken, kuralı
+  delmenin yolunu da göstermemeli (Adım 3'teki dersin öbür yüzü).
+- **"Başarılı" demek başarı değil**: araç hiçbir şey değiştirmediği halde model "düzenlendi" dedi. Hiçbir şey
+  yapmayan işlemi program reddetmeli; ileride (Adım 6) başarıyı modelin sözünden değil dosyanın son halinden ölçmek gerekir.
+- Onay + diff asıl güvenlik ağı: C'nin ilk sürümünde model yanlış dosyaya yazmaya kalktı, yazamadı çünkü onay yoktu.
+- Düşünme kapalıyken model Türkçe "ünlem"i `ü` harfi sandı; `!` yazınca ya da düşünme açıkken doğru yaptı. Hata araçta
+  değil, küçük modelin dili anlamasında. Think açık/kapalı farkı Adım 3'tekiyle aynı yönde, yine az örnekle.
+- Düşünme kapalıyken model, system mesajı istese de dosyayı okumadan düzenleyebiliyor ("!" denemeleri). Bu sefer
+  doğru çıktı, ama "önce oku" kuralı garantili değil.
+
+**Sıradaki:** Adım 5 — komut çalıştırma + izin listesi.

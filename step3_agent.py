@@ -21,10 +21,13 @@ from step2_tools import ARACLAR, SYSTEM, TARIFLER, araci_calistir
 MODEL = "qwen3:8b"
 
 
-def ajan_turu(mesajlar, think, maks_tur):
-    """Bir kullanıcı isteği için döngüyü çalıştırır; son cevabı döndürür."""
+def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calistir):
+    """Bir kullanıcı isteği için döngüyü çalıştırır; son cevabı döndürür.
+
+    tarifler/calistir: sonraki adımlar kendi araç setleriyle aynı döngüyü kullanabilsin diye parametre.
+    """
     for tur in range(1, maks_tur + 1):
-        cevap = ollama.chat(model=MODEL, messages=mesajlar, tools=TARIFLER, think=think)
+        cevap = ollama.chat(model=MODEL, messages=mesajlar, tools=tarifler, think=think)
         mesajlar.append(cevap.message)
 
         if not cevap.message.tool_calls:  # araç istemedi → iş bitti
@@ -32,7 +35,7 @@ def ajan_turu(mesajlar, think, maks_tur):
 
         print(f"  [tur {tur}]")
         for cagri in cevap.message.tool_calls:
-            sonuc = araci_calistir(cagri)
+            sonuc = calistir(cagri)
             print(f"     → {len(sonuc)} karakter")
             mesajlar.append({"role": "tool", "content": sonuc, "tool_name": cagri.function.name})
 
