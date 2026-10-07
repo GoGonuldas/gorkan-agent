@@ -166,6 +166,10 @@ def calistir(gorev, think, maks_tur=10):
         with contextlib.redirect_stdout(log):
             cevap = ajan.ajan_turu(mesajlar, think, maks_tur, kabuk.TARIFLER, kayitli_calistir)
         basarili, not_ = gorev["kontrol"](cevap, kok, kayit)
+        if not cevap.strip() and not kayit["araclar"]:
+            # hiçbir şey dönmedi: "README'ye dokunmadı" gibi kontroller bunu başarı sayardı.
+            # (Adım 7'de Mac mini'deki model bir süre anında boş cevap döndürdü, %10 gibi sahte bir sonuç çıktı.)
+            basarili, not_ = False, "BOŞ CEVAP: model ne metin ne araç döndürdü (altyapı sorunu olabilir)"
     except Exception as e:  # ajan veya kontrol çökerse: başarısız say, devam et
         cevap, basarili, not_ = "", False, f"İSTİSNA: {e!r}"
     finally:

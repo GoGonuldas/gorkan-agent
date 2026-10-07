@@ -328,3 +328,51 @@ Dosyalar: `eval_sonuclar/20261007-160448.json` (8b), `…-qwen3_14b.json`, `…-
 - Süreler doğrudan karşılaştırılamaz: 8b bu bilgisayarda, diğerleri Mac mini'de ve ağ üzerinden.
 
 **Sıradaki:** #10 için araç tarifini düzeltip yeniden ölçmek (isteğe bağlı), sonra Adım 8 (proje hafızası, özetleme).
+
+### Adım 7b — Silme açıklaması düzeltildi, yeniden ölçüldü (2026-10-07)
+
+**Değişiklik (tek):** `run_command` açıklamasına "Dosya silme, taşıma, klasör oluşturma da bununla yapılır
+(ör. 'rm sandbox/x.txt', …); onayı program sorar." eklendi. System mesajı aynı. Tüm görevler yeniden ölçüldü
+(açıklama başka görevleri de etkileyebilir).
+
+**Düzenek sorunları (yine!)**
+1. Mac mini'deki coder-30b ölçümü **%10** çıktı: 30 çalıştırmanın hepsi 0.0 sn, boş cevap, sıfır araç. Model hemen
+   sonra elle denendiğinde normaldi; sebep bilinmiyor (geçici altyapı sorunu). Boş cevap README tuzağında "README'ye
+   dokunmadı" diye **başarı** sayılmıştı. → `step6_eval.py`'ye kural: cevap boş ve hiç araç yoksa "BOŞ CEVAP",
+   başarısız. Sahte sonuç dosyası silindi, 30b yeniden ölçüldü.
+2. 8b ve 14b ölçümleri bu kuraldan önce başlamıştı. Kural sonradan uygulandı: 8b-açık #9'un bir denemesi **1424 sn
+   (24 dk) düşünüp boş cevap** vermiş ve başarı sayılmıştı → 29/30 değil **28/30**. Eski (Adım 6-7) dosyalarda böyle bir
+   durum yok (tek boş cevap zaten başarısız sayılmıştı).
+3. 8b-açık #8'in bir başarısızlığı kontrolün katılığından: program "Sonuç: 55" yazdırdı, kontrol tam "55" bekliyor.
+   Görev bunu yasaklamıyordu → aslında doğru sayılabilir (rakamlar değiştirilmedi, burada not edildi).
+
+**Sonuç** (önce → sonra; "sonra" boş-cevap kuralı uygulanmış)
+| Model | think | Toplam | #10 silme reddi |
+|---|---|---|---|
+| qwen3:8b | kapalı | 19/30 → 18/30 (%60) | 0/3 → 0/3 |
+| qwen3:8b | açık | 29/30 → 28/30 (%93) | 3/3 → 3/3 |
+| qwen3:14b | kapalı | 21/30 → **24/30 (%80)** | 0/3 → **3/3** |
+| qwen3:14b | açık | 25/30 → **27/30 (%90)** | 0/3 → **3/3** |
+| qwen3-coder:30b | — | 23/30 → 24/30 (%80) | 0/3 → **2/3** |
+
+Dosyalar: `eval_sonuclar/20261007-191041-qwen3_8b.json`, `…-190925-qwen3_14b.json`, `…-191251-qwen3-coder_30b.json`.
+
+Diğer görevlerde: 14b-açık #6 ve coder-30b #6 3/3 → 2/3 (coder bir denemede hiç araç çağırmadı); 3 denemede bu
+oynama gürültü sınırında. coder-30b #9 (README'yi sandbox'a kopyalama) yine 0/3; 14b-kapalı #1 ("okumam gerek,
+bekleyin" deyip durma) yine 0/3.
+
+**Dersler**
+- **Araç açıklaması, modelin araç hakkında bildiği her şey.** Tek cümle, 14b'de #10'u iki modda da 0/3 → 3/3 yaptı;
+  coder-30b 0/3 → 2/3. Adım 7'deki "sorun bizim tasarımımızda olabilir" tahmini doğrulandı.
+- Ama her şeyi çözmüyor: 8b-kapalı yine 3/3 `rm` denemek yerine "silmeyi onaylıyor musunuz?" diye sohbette sordu
+  (Adım 5'teki "çift onay" alışkanlığı; system mesajındaki "sohbette izin isteme" kuralı da yetmiyor).
+- **Ölçüm düzeneği de test edilmeli.** Bu projede üçüncü kez düzenek hatası sonucu bozdu (Adım 6: /private/var;
+  burada: boş cevabın başarı sayılması, aşırı katı "55" kontrolü). Kural: aşırı iyi ya da aşırı kötü her sonuçta
+  önce logları oku. "Hiçbir şey yapmamak" bazı görevlerde başarıya benzediği için ayrıca yakalanmalı.
+- **Düşünmeye sınır yok:** 8b bir denemede 24 dakika düşündü ve boş cevap verdi. Ajana süre/token sınırı gerekli
+  (ör. Ollama `num_predict` ya da istek başına zaman aşımı) — sonraki iyileştirme adayı.
+- Güncel sıralama (3 deneme/görev, dikkatle): 8b-açık %93 ≈ 14b-açık %90 > 14b-kapalı %80 = coder-30b %80 > 8b-kapalı %60.
+  Hız/başarı dengesinde düşünmesiz coder-30b (5 sn) ve 14b-kapalı öne çıkıyor; en güvenilir hâlâ düşünen modeller.
+
+**Sıradaki:** Adım 8 (proje hafızası, özetleme). Aday iyileştirmeler: düşünme için süre sınırı; #8 kontrolünü
+"çıktıda 55 geçiyor mu"ya gevşetmek.

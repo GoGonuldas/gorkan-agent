@@ -107,7 +107,8 @@ TARIFLER = yazma.TARIFLER + [
             "description": (
                 "Proje kökünde tek bir komut çalıştırır ve çıkış kodunu, stdout ve stderr'i döndürür. "
                 "Kabuk yok: ; && | > kullanılamaz. ls, cat, python gibi komutlar serbest; diğerleri kullanıcı "
-                "onayı ister; sudo gibi bazıları yasaktır."
+                "onayı ister; sudo gibi bazıları yasaktır. Dosya silme, taşıma, klasör oluşturma da bununla yapılır "
+                "(ör. 'rm sandbox/x.txt', 'mv sandbox/a.txt sandbox/b.txt'); onayı program sorar."
             ),
             "parameters": {
                 "type": "object",
