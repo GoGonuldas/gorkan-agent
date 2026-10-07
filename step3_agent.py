@@ -9,7 +9,7 @@ Model hep araç isteyebilir (sonsuz döngü), bu yüzden tur sınırı var.
 
 Araçlar Adım 2'den geliyor (list_files, read_file; proje klasörü dışına çıkamaz).
 
-Çalıştır:  .venv/bin/python step3_agent.py [--think] [--maks-tur N]
+Çalıştır:  .venv/bin/python step3_agent.py [--no-think] [--maks-tur N]
 Komutlar:  /sifirla   /cikis
 """
 import argparse
@@ -48,7 +48,8 @@ def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir):
     Sonraki adımlar kendi system mesajı ve araç setiyle bunu çağırır.
     """
     ap = argparse.ArgumentParser()
-    ap.add_argument("--think", action="store_true", help="qwen3'ün düşünme modunu aç")
+    # varsayılan açık: Adım 6'da think açık %97, kapalı %63 (ama ~6.5 kat yavaş). Kapatmak için --no-think
+    ap.add_argument("--think", action=argparse.BooleanOptionalAction, default=True, help="qwen3'ün düşünme modu")
     ap.add_argument("--maks-tur", type=int, default=10, help="bir istek için en fazla araç turu")
     args = ap.parse_args()
 
