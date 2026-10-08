@@ -721,3 +721,19 @@ Kontrol artık önbelleği siliyor ve `python -B` ile çalıştırıyor.
 - Çok adımlı görevler eski ölçümün göremediği iki zayıflığı gösterdi: uzun okuma işlerinde bağlam ve tur sınırı.
 - Kontrolün kendisi de hata yapabilir (önbellek); her kontrolü önce elle doğru/yanlış çözümle denemek bunu yakaladı.
 - #12'deki bağlam açıklaması bir tahmin; doğrulamak için eval'in token sayacını kaydetmesi gerekiyor.
+
+### Sıradaki iş (2026-10-08 akşamı yarıda kaldı)
+**Yapıldı, commit edilmedi:** `step6_eval.py`'ye `--ajan step5|tam` (tam = Adım 9 ajanı: hafıza + özetleme + alt görev +
+sandbox) ve her çalıştırmada en yüksek bağlam (gerçek token), özetleme ve alt görev sayısı kaydı.
+
+**Yarım ölçümler** (qwen3:8b, think açık):
+- step5 ajanı, #11–14 ×3: **9/12** (`eval_sonuclar/20261008-223801-qwen3_8b.json`). #12'nin başarılı denemelerinde
+  bağlam 6900 ve 7238/8192 (sınıra çok yakın); başarısız deneme bu sefer hiç araç çağırmadan cevap verdi. #14 1/3,
+  yine `oyun.py`'deki `HIZ * 2` unutuldu.
+- tam ajan, 14 görev ×3: 28/42'de durduruldu, o ana kadar 28/28 (#11–14'e sıra gelmedi). Sonuç dosyası yazılmadı.
+- Birçok çalıştırma 1000–1800 sn sürdü (aynı gün 10e'de 50–150 sn); sebebi bilinmiyor.
+
+**Yapılacaklar:**
+1. Yavaşlığın sebebini bul (`ollama ps`, tek görevin süresi).
+2. Eval her çalıştırmanın sonucunu hemen dosyaya yazsın (iptal edilince kaybolmasın).
+3. `.venv/bin/python step6_eval.py --ajan tam --think acik --tekrar 3` → step5 ile karşılaştır, "10f" olarak yaz.

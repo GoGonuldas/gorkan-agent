@@ -6,8 +6,11 @@ Adım 5'in tam ajanı (okuma, yazma, komut) ölçülür. Adım 5'te öğrenilenl
     Sadece cevap metnine bakan kontroller (anahtar kelime) zayıftır; tabloda "(metin)" diye işaretli.
   - Her çalıştırma proje dosyalarının geçici bir kopyasında yapılır: gerçek sandbox/ etkilenmez, her deneme temiz başlar.
 
+Ajan:      --ajan step5 (varsayılan; okuma+yazma+komut) | tam (Adım 9: + hafıza, özetleme, alt görev, sandbox)
+           Her çalıştırmada en yüksek bağlam (gerçek token sayısı), özetleme ve alt görev sayısı kaydedilir.
+
 Çalıştır:  .venv/bin/python step6_eval.py [--tekrar 3] [--think kapali|acik|ikisi] [--gorev 1 5 9]
-                                          [--model AD] [--host URL] [--dusunme-siniri SN] [--sandbox]
+                                          [--model AD] [--host URL] [--dusunme-siniri SN] [--sandbox] [--ajan step5|tam]
 Sonuç:     eval_sonuclar/<zaman>-<model>.json + ekranda özet tablo
 """
 import argparse
@@ -227,7 +230,19 @@ GOREVLER = [
 
 # --- Çalıştırıcı ---
 
-def calistir(gorev, think, maks_tur=10):
+def ajan_kur(ad, kok):
+    """(system, tarifler, araci_calistir, hazirla) — ad: 'step5' veya 'tam'."""
+    if ad == "step5":
+        return kabuk.SYSTEM, kabuk.TARIFLER, kabuk.araci_calistir, None
+    import step8_memory as hafiza, step8_subtask as alt, step8_summary as ozetleme, step9_sandbox as sb
+    # sb.SYSTEM içe aktarılırken gerçek AGENT.md ile kuruldu; hafıza kısmı kopyanın AGENT.md'sinden (yok) yeniden yapılır
+    ek = sb.SYSTEM[len(hafiza.system_mesaji()):]
+    hafiza.HAFIZA = kok / "AGENT.md"
+    return (hafiza.system_mesaji() + ek, alt.TARIFLER, alt.araci_calistir,
+            lambda m: ozetleme.ozetle_gerekirse(m, alt.TARIFLER))
+
+
+def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
     # resolve(): macOS'ta /var → /private/var kısayol; çözülmezse kilit her yolu "proje dışında" sanar
     kok = Path(tempfile.mkdtemp(prefix="gorkan-eval-")).resolve()
     for ad in KOPYALANACAK:
@@ -244,18 +259,28 @@ def calistir(gorev, think, maks_tur=10):
         kayit["onaylar"].append((soru, evet))
         return None if evet else "REDDEDİLDİ: kullanıcı onaylamadı, hiçbir şey yapılmadı. Neden: buna izin vermiyorum"
 
+    system, tarifler, araci_calistir, ajan_hazirla = ajan_kur(ajan_adi, kok)
+    enbuyuk = [0]  # en yüksek gerçek bağlam (son model çağrısının prompt + cevap token'ı)
+
     def kayitli_calistir(cagri):
         kayit["araclar"].append(cagri.function.name)
-        return kabuk.araci_calistir(cagri)
+        return araci_calistir(cagri)
 
+    def hazirla(m):  # her model çağrısından önce: önceki çağrının sayısını kaydet, sonra (varsa) özetle
+        enbuyuk[0] = max(enbuyuk[0], ajan.SAYAC["token"])
+        if ajan_hazirla:
+            ajan_hazirla(m)
+
+    ajan.SAYAC.update(mesaj=0, token=0)
     eski = (okuma.KOK, yazma.KUM, yazma.sor)
     okuma.KOK, yazma.KUM, yazma.sor = kok, kok / "sandbox", sahte_sor  # araçlar bu kopyaya baksın
     log = io.StringIO()
     t0 = time.time()
     try:
-        mesajlar = [{"role": "system", "content": kabuk.SYSTEM}, {"role": "user", "content": gorev["istek"]}]
+        mesajlar = [{"role": "system", "content": system}, {"role": "user", "content": gorev["istek"]}]
         with contextlib.redirect_stdout(log):
-            cevap = ajan.ajan_turu(mesajlar, think, maks_tur, kabuk.TARIFLER, kayitli_calistir)
+            cevap = ajan.ajan_turu(mesajlar, think, maks_tur, tarifler, kayitli_calistir, hazirla)
+        enbuyuk[0] = max(enbuyuk[0], ajan.SAYAC["token"])
         basarili, not_ = gorev["kontrol"](cevap, kok, kayit)
         if not cevap.strip() and not kayit["araclar"]:
             # hiçbir şey dönmedi: "README'ye dokunmadı" gibi kontroller bunu başarı sayardı.
@@ -271,6 +296,8 @@ def calistir(gorev, think, maks_tur=10):
         "gorev": gorev["no"], "think": think, "basarili": bool(basarili), "not": not_,
         "sure": round(time.time() - t0, 1), "araclar": kayit["araclar"],
         "yedek": log.getvalue().count("düşünmeden yeniden soruluyor"),  # düşünme takılıp düşünmesize düşülen çağrı
+        "baglam": enbuyuk[0], "ozet": log.getvalue().count("eski mesaj özetleniyor"),
+        "alt_gorev": log.getvalue().count("┌─ alt görev"),
         "onaylar": kayit["onaylar"], "cevap": cevap, "log": log.getvalue(),
     }
 
@@ -305,7 +332,10 @@ def main():
     ap.add_argument("--host", help="Ollama sunucusu, ör. http://gorkans-mac-mini.local:11434")
     ap.add_argument("--dusunme-siniri", type=float, default=ajan.DUSUNME_SINIRI)
     ap.add_argument("--sandbox", action="store_true", help="komutları Adım 9'un sandbox-exec'i içinde çalıştır")
+    ap.add_argument("--ajan", choices=["step5", "tam"], default="step5", help="tam: Adım 9 ajanı (sandbox dahil)")
     args = ap.parse_args()
+    if args.ajan == "tam":
+        args.sandbox = True  # tam ajan step9_sandbox'ı yüklüyor
     if args.sandbox:
         import step9_sandbox  # noqa: F401  (yüklenince step5'in run_command'ını sandbox'a bağlar)
     ajan.DUSUNME_SINIRI = args.dusunme_siniri
@@ -315,22 +345,24 @@ def main():
         modlar = [False]
     gorevler = [g for g in GOREVLER if not args.gorev or g["no"] in args.gorev]
     toplam = len(modlar) * len(gorevler) * args.tekrar
-    print(f"Model: {ajan.MODEL} @ {args.host or 'bu bilgisayar'}  görev: {len(gorevler)}  tekrar: {args.tekrar}  think: {modlar}  → {toplam} çalıştırma")
+    print(f"Ajan: {args.ajan}  Model: {ajan.MODEL} @ {args.host or 'bu bilgisayar'}  görev: {len(gorevler)}  tekrar: {args.tekrar}  think: {modlar}  → {toplam} çalıştırma")
 
     sonuclar = []
     for think in modlar:
         for g in gorevler:
             for i in range(args.tekrar):
-                r = calistir(g, think)
+                r = calistir(g, think, ajan_adi=args.ajan)
                 sonuclar.append(r)
                 print(f"[{len(sonuclar)}/{toplam}] think={think} #{g['no']} {g['ad']} deneme {i + 1}: "
                       f"{'✅' if r['basarili'] else '❌'} {r['sure']} sn  araçlar={r['araclar']}"
-                      f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  {r['not']}", flush=True)
+                      f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  bağlam={r['baglam']}/{ajan.NUM_CTX}"
+                      f"{'  özet=' + str(r['ozet']) if r['ozet'] else ''}"
+                      f"{'  alt görev=' + str(r['alt_gorev']) if r['alt_gorev'] else ''}  {r['not']}", flush=True)
 
     klasor = PROJE / "eval_sonuclar"
     klasor.mkdir(exist_ok=True)
     dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}-{ajan.MODEL.replace(':', '_').replace('/', '_')}.json"
-    dosya.write_text(json.dumps({"model": ajan.MODEL, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "sandbox": args.sandbox, "tekrar": args.tekrar, "sonuclar": sonuclar},
+    dosya.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "sandbox": args.sandbox, "tekrar": args.tekrar, "sonuclar": sonuclar},
                                 ensure_ascii=False, indent=1), encoding="utf-8")
     ozet(sonuclar, modlar)
     print(f"\nayrıntı: {dosya.relative_to(PROJE)}")
