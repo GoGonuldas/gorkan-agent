@@ -37,6 +37,7 @@ DUSUNME_SINIRI = 60
 NUM_CTX = 8192
 # son çağrının gerçek token sayısı (prompt + cevap) ve o çağrıda kaç mesaj vardı; bağlam takibi için
 SAYAC = {"mesaj": 0, "token": 0}
+THINK = True  # sohbet() komut satırından ayarlar; alt görevler (Adım 8c) aynı ayarla çalışsın diye burada
 
 
 def ayarla(model=None, host=None, think=True):
@@ -127,7 +128,7 @@ def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir, hazirla=No
 
     Sonraki adımlar kendi system mesajı ve araç setiyle bunu çağırır.
     """
-    global DUSUNME_SINIRI, NUM_CTX
+    global DUSUNME_SINIRI, NUM_CTX, THINK
     ap = argparse.ArgumentParser()
     # varsayılan açık: Adım 6'da think açık %97, kapalı %63 (ama ~6.5 kat yavaş). Kapatmak için --no-think
     ap.add_argument("--think", action=argparse.BooleanOptionalAction, default=True, help="qwen3'ün düşünme modu")
@@ -141,6 +142,7 @@ def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir, hazirla=No
     args.think = ayarla(args.model, args.host, args.think)
     DUSUNME_SINIRI = args.dusunme_siniri
     NUM_CTX = args.num_ctx
+    THINK = args.think
 
     mesajlar = [{"role": "system", "content": system}]
     adlar = ", ".join(t["function"]["name"] for t in tarifler)

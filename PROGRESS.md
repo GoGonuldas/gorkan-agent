@@ -489,3 +489,40 @@ taşı)", "Yapılanlar", "Yarım kalan işler".
   turda biraz daha silinir.
 - Bilinen sınır: tek istek pencereyi doldurursa (uzun araç zinciri) özetlenecek eski mesaj yok, sadece uyarı.
 - Eval artık 4096 değil 8192 ile çalışıyor (görevler küçük, etkisi ölçülmedi).
+
+## Adım 8c — Alt görevler
+
+**Ne yaptık** (`step8_subtask.py`)
+- Yeni araç `alt_gorev(gorev)`: alt ajan **boş bir konuşmayla** (kendi system mesajı + görev) aynı `ajan_turu`
+  döngüsünü çalıştırır, kısa cevabını (en fazla 2000 karakter) döndürür. Ana konuşmaya dosya içerikleri girmez.
+- Alt ajan sadece okuyabilir (list_files, read_file): onaylar ana ajanda kalır, alt ajan alt görev açamaz.
+- `step3_agent.SAYAC` ana konuşmanın sayacı; alt görev bitince geri yükleniyor (yoksa 8b'nin tahmini alt ajanın
+  token sayısıyla bozulurdu). Alt ajan aynı think ayarıyla çalışsın diye `step3_agent.THINK` eklendi.
+- Ana system mesajı: "Birden çok dosya ya da uzun çıktı gerektiren işleri alt_gorev ile parçala."
+
+**Test** (qwen3:8b, think kapalı, num_ctx 8192, 8b özetlemesi ikisinde de açık): tek istekte 5 dosya
+(step2–6, ~37 bin karakter ≈ 12 bin token) → "her dosyanın başlığı ve en az iki fonksiyon adı".
+| | doğru başlık | süre | ana bağlam en çok | taşma uyarısı |
+|---|---|---|---|---|
+| alt görevsiz | **0/5** ×3 | 57 sn | ~9147 token (> 8192) | 4 |
+| alt görevli | **5/5** ×3 | 90 sn | ~2140 token | 0 |
+
+- Alt görevsiz: üç denemede de "Dosya bulunamadı" (birinde var olmayan `step6_hatirla.py`). Tek istek pencereyi
+  doldurdu; 8b'nin bilinen sınırı, özetlenecek eski mesaj yok. Ollama eski mesajları attı, ajan kendi isteğini
+  kaybetti (tahmin; mesaj düzeyinde ne atıldığı görülmedi).
+- Alt görevli: ana ajan her dosya için ayrı alt görev açtı (5 alt görev, kendiliğinden). Ana bağlam 4 kat küçük.
+
+**Başarısızlık (ölçümde):** test ilk önce alt görevliyi 4/5 saydı; "step2" eksik görünüyordu ama cevapta "Adım 2:
+İlk araçlar" vardı. Python'da `"İ".lower()` → `"i̇"` (i + birleşik nokta), "ilk araçlar" eşleşmiyor. Türkçe metni
+küçültüp karşılaştırırken `İ→i`, `I→ı` dönüşümü elle yapılmalı. Aynı tuzak `step6_eval.py`'deki anahtar kelime
+kontrollerinde de var (ör. "BULUNAMADI" → "bulunamadi"); düzeltilmedi, aday iş.
+
+**Dersler**
+- Alt görev = bağlam izolasyonu: büyük okuma alt ajanın penceresinde kalır, ana konuşma sadece sonucu taşır. 8b'nin
+  çözemediği "tek istek pencereyi dolduruyor" durumunu çözüyor; bedeli süre (57 → 90 sn) ve alt ajanın sonucu
+  kısaltırken bilgi kaybetme riski.
+- Paylaşılan durum (burada token sayacı) alt ajanla ana ajan arasında karışabilir; açıkça saklanıp geri yüklenmeli.
+- Ölçüm kodu bir kez daha yanlış alarm verdi: şüpheli her sonuçta önce cevabın kendisini oku.
+
+**Sıradaki:** PLAN.md'deki 8+ maddeleri tamam. Adaylar: eval'i 8192 + Türkçe harf düzeltmesiyle yeniden ölçmek,
+#8 "Sonuç: 55" kontrolünü gevşetmek.
