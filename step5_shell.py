@@ -26,6 +26,7 @@ import step4_write as yazma
 from step3_agent import sohbet
 
 SERBEST = {"ls", "cat", "head", "tail", "wc", "grep", "pwd", "echo", "python", "python3"}
+PYTHONLAR = {"python", "python3"}
 YASAK = {"sudo", "su", "dd", "mkfs", "shutdown", "reboot"}
 ISLECLER = {";", "&", "&&", "|", "||", ">", ">>", "<", "(", ")"}
 ZAMAN_ASIMI = 30
@@ -54,6 +55,8 @@ def izin_seviyesi(argv):
     if ad not in SERBEST:
         return "onay", f"'{ad}' izin listesinde değil"
     for arg in argv[1:]:
+        if arg == "/" and ad in PYTHONLAR:  # betiğe verilen bölme işareti (hesap.py 10 2 /), yol değil
+            continue
         if arg.startswith(("/", "~")) or ".." in Path(arg).parts:
             return "onay", f"'{arg}' proje klasörünün dışını gösteriyor olabilir"
     return "serbest", ""

@@ -653,3 +653,30 @@ dosya iki argüman sırasından birinde tam 8, 5, 21 veriyor mu.
   bunu ona söyleyince yolunu değiştiriyor. Notun içindeki somut öneri (write_file ile baştan yaz) birebir izlendi.
 - Nadir bir başarısızlığı düzelten şeyi ölçmek için o durumu **kasıtlı olarak** üretmek gerekiyor; açık uçlu görevi
   tekrarlamak yetmiyor (7c'deki "24 dk düşünme" dersiyle aynı).
+
+### 10b — alt_gorev açıklamasındaki örnek
+**Ne yaptık** (`step8_subtask.py`): `gorev` parametresindeki somut örnek ("step3_agent.py dosyasını oku;
+DUSUNME_SINIRI ne işe yarıyor…") kaldırıldı, yerine kalıp kondu: "'<dosya> dosyasını oku; <kullanıcının o dosya
+hakkında istediği bilgi>'. Köşeli parantezleri kullanıcının isteğine göre doldur."
+
+**Test sonuçsuz:** aynı tablo isteği, temiz bağlamla, eski ve yeni açıklama 3'er kez. Eski açıklamayla da kopya
+**hiç olmadı** (0/3); model 6 denemenin 5'inde alt görevi hiç kullanmadı, kullandığı tek denemede 9 görevi doğru
+yazdı. Yeni açıklamada 2 denemede olmayan dosya adı (step7_…) çıktı; 3 denemeyle açıklamaya mı rastlantıya mı bağlı,
+söylenemez. Dosyaları tam adıyla saydığım için "0/9" sonuçları da güvenilir değil (model kısa ad yazmış olabilir).
+
+**Karar:** değişiklik duruyor (araç açıklamasında kopyalanabilecek somut örnek bulundurmak riskli, zararı görülmedi)
+ama işe yaradığı **kanıtlanmadı**. Gerçek denemedeki kopya uzun bir konuşmanın 3. isteğinde oldu; yeniden üretmek
+için o koşulları (önceki işler + tam sistem mesajı) kurmak gerekiyor (~1 saatlik test, şimdilik yapılmadı).
+
+**Ders:** tek seferlik bir hatanın düzeltmesini ölçmek için önce hatayı yeniden üretmek gerekiyor; üretemiyorsan
+"düzeldi" diyemezsin.
+
+### 10c — Tek başına `/` onay istemesin
+**Ne yaptık** (`step5_shell.izin_seviyesi`): python/python3'e verilen tek başına `/` argümanı yol sayılmıyor
+(betiğe verilen bölme işareti). `ls /`, `/etc/x.py`, `~/x`, `../x` hâlâ onay istiyor.
+
+**Test** (izin_seviyesi'ne doğrudan 8 komut): `python sandbox/hesap.py 10 2 /` ve `python3 …` → serbest; `ls /`,
+`cat /etc/passwd`, `python /etc/x.py`, `python … ~/x`, `python … ../x` → onay; `python … 5 3 +` → serbest. 8/8.
+
+**Ders:** aynı karakter komuta göre farklı anlam taşıyor; kural argümana tek başına değil, komutla birlikte bakmalı.
+Sandbox (Adım 9) zaten proje dışına yazmayı engellediği için bu gevşetme güvenliği azaltmıyor.

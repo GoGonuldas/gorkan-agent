@@ -77,7 +77,8 @@ TARIFLER = hafiza.TARIFLER + [
                         "type": "string",
                         "description": (
                             "Kendi başına anlaşılır görev; hangi dosya ve tam olarak ne istendiği yazılmalı. "
-                            "ör. 'step3_agent.py dosyasını oku; DUSUNME_SINIRI ne işe yarıyor, iki cümleyle anlat.'"
+                            "Kalıp: '<dosya> dosyasını oku; <kullanıcının o dosya hakkında istediği bilgi>'. "
+                            "Köşeli parantezleri kullanıcının isteğine göre doldur."
                         ),
                     },
                 },
