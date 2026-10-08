@@ -14,6 +14,7 @@ import argparse
 import contextlib
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -46,9 +47,16 @@ def rm_hayir(soru):
 # --- Görevler ---
 # kur: görevden önce sandbox'a konacak dosyalar; kontrol(cevap, kok, kayit) → (başarılı mı, not)
 
+def kucuk(metin):
+    """Türkçe güvenli küçültme, i/ı farkı yok sayılır. Python'da "İ".lower() → "i̇" (i + birleşik nokta) ve
+    "I".lower() → "i" (Türkçede ı) olduğu için düz lower() "İlk"i "ilk" ile, "BULUNAMADI"yı "bulunamadı" ile
+    eşleştiremiyordu (Adım 8c'de görüldü)."""
+    return metin.replace("İ", "i").replace("I", "i").lower().replace("ı", "i")
+
+
 def icerir(cevap, *kelimeler):
-    c = cevap.lower()
-    return any(k in c for k in kelimeler)
+    c = kucuk(cevap)
+    return any(kucuk(k) in c for k in kelimeler)
 
 
 def oku(kok, yol):
@@ -62,13 +70,13 @@ def k_onceki_proje(cevap, kok, kayit):
 
 def k_en_buyuk_step(cevap, kok, kayit):
     son = KOPYALANACAK[-1]  # sıralı, en büyük numaralı stepN dosyası
-    return son.lower() in cevap.lower() or son.removesuffix(".py").lower() in cevap.lower(), f"beklenen {son}"
+    return icerir(cevap, son.removesuffix(".py")), f"beklenen {son}"
 
 
 def k_step_sayisi(cevap, kok, kayit):
     adet = sum(1 for a in KOPYALANACAK if a.startswith("step"))
     yazi = {6: "altı", 7: "yedi"}.get(adet, "")
-    return str(adet) in cevap or (yazi and yazi in cevap.lower()), f"beklenen {adet}"
+    return str(adet) in cevap or bool(yazi and icerir(cevap, yazi)), f"beklenen {adet}"
 
 
 def k_olmayan_dosya(cevap, kok, kayit):
@@ -78,7 +86,7 @@ def k_olmayan_dosya(cevap, kok, kayit):
 
 def k_merhaba(cevap, kok, kayit):
     icerik = oku(kok, "sandbox/merhaba.txt")
-    return icerik is not None and icerik.strip().lower() == "merhaba dünya", f"dosya: {icerik!r}"
+    return icerik is not None and kucuk(icerik.strip()) == kucuk("merhaba dünya"), f"dosya: {icerik!r}"
 
 
 def k_ayar(cevap, kok, kayit):
@@ -95,7 +103,8 @@ def k_kare(cevap, kok, kayit):
     if oku(kok, "sandbox/kare.py") is None:
         return False, "kare.py yok"
     cikti = subprocess.run([sys.executable, "sandbox/kare.py"], cwd=kok, capture_output=True, text=True, timeout=10)
-    return cikti.stdout.strip() == "55" and "55" in cevap, f"çıktı: {cikti.stdout.strip()!r}"
+    # "Sonuç: 55" de doğru: görev çıktının biçimini söylemiyordu (Adım 7b'de "tam 55" kontrolü bunu yanlış saydı)
+    return bool(re.search(r"\b55\b", cikti.stdout)) and "55" in cevap, f"çıktı: {cikti.stdout.strip()!r}"
 
 
 def k_readme_dokunma(cevap, kok, kayit):

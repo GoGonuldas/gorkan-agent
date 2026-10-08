@@ -526,3 +526,32 @@ kontrollerinde de var (ör. "BULUNAMADI" → "bulunamadi"); düzeltilmedi, aday 
 
 **Sıradaki:** PLAN.md'deki 8+ maddeleri tamam. Adaylar: eval'i 8192 + Türkçe harf düzeltmesiyle yeniden ölçmek,
 #8 "Sonuç: 55" kontrolünü gevşetmek.
+
+## Adım 8d — Kontrol düzeltmeleri ve yeniden ölçüm
+
+**Ne yaptık** (`step6_eval.py`)
+- `kucuk()`: Türkçe güvenli karşılaştırma, i/ı/İ/I farkı yok sayılıyor (8c'deki `"İ".lower()` tuzağı).
+- #8: çıktıda 55 sayısının geçmesi yeterli ("Sonuç: 55" artık doğru).
+- Eski 10 sonuç dosyası yeni kontrollerle yeniden puanlandı: Türkçe düzeltmesi **hiçbir** sonucu değiştirmedi;
+  "55" düzeltmesi sadece 8b-açık #8'de iki çalıştırmayı başarıya çevirdi (iki ayrı dosyada birer tane).
+
+**Sonuç** (3 deneme/görev; yeni koşullar: num_ctx 8192, düşünme yedeği + zaman aşımı, yeni kontroller)
+| Model | think | önceki | şimdi | ort. süre | yedek |
+|---|---|---|---|---|---|
+| qwen3:8b | kapalı | 18/30 (7b) | 19/30 (%63) | 4 sn | — |
+| qwen3:8b | açık | 29/30 (7c; yeni kontrolle 30/30) | **30/30 (%100)** | 33 sn | 3 kez |
+| qwen3:14b | açık | 29/30 (7c) | 28/30 (%93) | 61 sn | 11 kez / 8 çalıştırma |
+
+Dosyalar: `eval_sonuclar/20261008-150703-qwen3_8b.json`, `…-151858-qwen3_14b.json`.
+
+- 8b-kapalı başarısızlıkları Adım 6'dakiyle aynı görevlerde: #3 say, #6 düzenle, #7 ünlem, #10 silme reddi.
+- 14b'nin iki başarısızlığı da #2: "En büyük numaralı dosya **adım6_eval.py**'dir." Dosya adını Türkçeye çeviriyor.
+  Önceki iki 14b ölçümündeki #2 başarısızlıkları da birebir aynı cevap. Gerçek bir hata: o adda dosya yok.
+- 8192 penceresinin bu küçük görevlerde ölçülebilir bir etkisi görülmedi (beklendiği gibi; görevler 4096'yı aşmıyordu).
+
+**Dersler**
+- Kontrolleri düzeltince önce eski sonuçları yeniden puanla: neyin kontrolden, neyin modelden ya da yeni
+  koşullardan geldiği ancak böyle ayrılır. Burada fark neredeyse tamamen #8'den geldi.
+- Tekrarlayan bir başarısızlık rastgelelik değil, modelin bir alışkanlığıdır (14b: Türkçe sistem mesajında dosya
+  adlarını çevirmek). Aday düzeltme: system mesajına "dosya adlarını aynen yaz, çevirme".
+- 3 deneme/görevle 28/30 ile 30/30 arası fark gürültü sınırında; "8b, 14b'den iyi" demek için daha çok deneme gerekir.
