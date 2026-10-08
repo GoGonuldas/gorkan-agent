@@ -65,7 +65,7 @@ def k_en_buyuk_step(cevap, kok, kayit):
 
 def k_step_sayisi(cevap, kok, kayit):
     adet = sum(1 for a in KOPYALANACAK if a.startswith("step"))
-    yazi = {6: "altı", 7: "yedi"}.get(adet, "")
+    yazi = {6: "altı", 7: "yedi", 8: "sekiz"}.get(adet, "")
     return str(adet) in cevap or (yazi and yazi in cevap.lower()), f"beklenen {adet}"
 
 

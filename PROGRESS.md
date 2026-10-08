@@ -413,3 +413,35 @@ Dosyalar: `eval_sonuclar/20261007-194352-qwen3_8b.json`, `…-210925-qwen3_14b.j
 - Süre kontrolünü veri gelince yapan döngü, verinin hiç gelmediği durumu yakalayamaz.
 
 **Sıradaki:** Adım 8 (proje hafızası, özetleme). Aday: #8 kontrolünü "çıktıda 55 geçiyor mu"ya gevşetmek.
+
+## Adım 8a — Proje hafızası (AGENT.md)
+
+**Ne yaptık** (`step8_memory.py`)
+- Başlangıçta proje kökündeki `AGENT.md` okunup system mesajının sonuna ekleniyor (en fazla 4000 karakter).
+- Yeni araç `hatirla(note)`: AGENT.md'nin sonuna tek satır (`- …`, en fazla 300 karakter) ekler, onay ister.
+  "Sadece sandbox/'a yaz" kuralının tek istisnası; yol modelden alınmıyor ve sadece ekleme yapılabiliyor.
+- `step6_eval.py`: dosya sayısı artık 8 ("sekiz" de kabul).
+
+**Test** (qwen3:8b, think açık, geçici kopyada; `yazma.sor` hep onay)
+1. oturum: "Bundan sonra her Python dosyasının ilk satırı '# yazar: gorkan-agent' olsun, kalıcı olarak hatırla."
+2. oturum (yeni geçmiş, AGENT.md'li system): "sandbox/kare.py dosyasını yaz…" → ilk satır kontrol edilir.
+Kontrol grubu: 1. oturum olmadan aynı 2. oturum.
+
+| | hafızalı | hafızasız |
+|---|---|---|
+| ilk deneme (araç açıklaması kısa) | 1/3 | 0/3 |
+| açıklama düzeltildikten sonra | **3/3** | 0/3 |
+
+**Başarısızlık:** ilk denemede model 3 notun 2'sine sadece değeri yazdı: `- # yazar: gorkan-agent`. Bağlamı olmayan
+bu satır sonraki oturumda kural gibi okunmadı. Kuralın tam cümleyle yazıldığı tek denemede uygulandı.
+→ Araç açıklamasına "not, bu konuşmayı hiç görmemiş biri okuduğunda da anlaşılır olmalı" + iyi/kötü örnek eklendi
+(örnek bilerek testten farklı bir konu). Sonra 3 notun hepsi tam cümle: "Her yazdığım Python dosyasının ilk satırı
+'# yazar: gorkan-agent' olacak."
+
+**Dersler**
+- Hafıza bir mesajdır: yazan model, okuyan ise bağlamı bilmeyen **başka bir oturum**. Not kendi başına anlaşılır
+  olmalı. Yine araç açıklaması (Adım 7b'deki gibi) belirleyici çıktı.
+- Hafızaya yazmak, ajanın kendi davranışını kalıcı değiştirmesi demek → onay şart; dosyaya sadece ekleme.
+- Ölçüm küçük (3+3 deneme, tek görev); sadece 8b-açık denendi.
+
+**Sıradaki:** Adım 8b — uzun konuşmayı özetleme (bağlam dolunca eski mesajları özetle).
