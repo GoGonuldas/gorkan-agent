@@ -7,7 +7,7 @@ Adım 5'in tam ajanı (okuma, yazma, komut) ölçülür. Adım 5'te öğrenilenl
   - Her çalıştırma proje dosyalarının geçici bir kopyasında yapılır: gerçek sandbox/ etkilenmez, her deneme temiz başlar.
 
 Çalıştır:  .venv/bin/python step6_eval.py [--tekrar 3] [--think kapali|acik|ikisi] [--gorev 1 5 9]
-                                          [--model AD] [--host URL]
+                                          [--model AD] [--host URL] [--dusunme-siniri SN]
 Sonuç:     eval_sonuclar/<zaman>-<model>.json + ekranda özet tablo
 """
 import argparse
@@ -179,6 +179,7 @@ def calistir(gorev, think, maks_tur=10):
     return {
         "gorev": gorev["no"], "think": think, "basarili": bool(basarili), "not": not_,
         "sure": round(time.time() - t0, 1), "araclar": kayit["araclar"],
+        "yedek": log.getvalue().count("düşünmeden yeniden soruluyor"),  # düşünme takılıp düşünmesize düşülen çağrı
         "onaylar": kayit["onaylar"], "cevap": cevap, "log": log.getvalue(),
     }
 
@@ -200,7 +201,8 @@ def ozet(sonuclar, modlar):
             ok = sum(r["basarili"] for r in rs)
             print(f"   think={m}: {ok}/{len(rs)} = %{100 * ok / len(rs):.0f}, "
                   f"ort. {sum(r['sure'] for r in rs) / len(rs):.0f} sn, "
-                  f"ort. {sum(len(r['araclar']) for r in rs) / len(rs):.1f} araç çağrısı")
+                  f"ort. {sum(len(r['araclar']) for r in rs) / len(rs):.1f} araç çağrısı, "
+                  f"düşünmesize yedek: {sum(r['yedek'] for r in rs)} kez ({sum(r['yedek'] > 0 for r in rs)} çalıştırmada)")
 
 
 def main():
@@ -210,7 +212,9 @@ def main():
     ap.add_argument("--gorev", type=int, nargs="*", help="sadece bu görev numaraları")
     ap.add_argument("--model", help="Ollama model adı (varsayılan step3_agent.MODEL)")
     ap.add_argument("--host", help="Ollama sunucusu, ör. http://gorkans-mac-mini.local:11434")
+    ap.add_argument("--dusunme-siniri", type=float, default=ajan.DUSUNME_SINIRI)
     args = ap.parse_args()
+    ajan.DUSUNME_SINIRI = args.dusunme_siniri
 
     modlar = {"kapali": [False], "acik": [True], "ikisi": [False, True]}[args.think]
     if not ajan.ayarla(args.model, args.host, think=True):  # model düşünemiyorsa sadece kapalı ölç
@@ -226,12 +230,13 @@ def main():
                 r = calistir(g, think)
                 sonuclar.append(r)
                 print(f"[{len(sonuclar)}/{toplam}] think={think} #{g['no']} {g['ad']} deneme {i + 1}: "
-                      f"{'✅' if r['basarili'] else '❌'} {r['sure']} sn  araçlar={r['araclar']}  {r['not']}", flush=True)
+                      f"{'✅' if r['basarili'] else '❌'} {r['sure']} sn  araçlar={r['araclar']}"
+                      f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  {r['not']}", flush=True)
 
     klasor = PROJE / "eval_sonuclar"
     klasor.mkdir(exist_ok=True)
     dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}-{ajan.MODEL.replace(':', '_').replace('/', '_')}.json"
-    dosya.write_text(json.dumps({"model": ajan.MODEL, "host": args.host, "tekrar": args.tekrar, "sonuclar": sonuclar},
+    dosya.write_text(json.dumps({"model": ajan.MODEL, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "tekrar": args.tekrar, "sonuclar": sonuclar},
                                 ensure_ascii=False, indent=1), encoding="utf-8")
     ozet(sonuclar, modlar)
     print(f"\nayrıntı: {dosya.relative_to(PROJE)}")

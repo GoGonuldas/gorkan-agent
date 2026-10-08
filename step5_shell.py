@@ -13,7 +13,7 @@ Bilinen açık: python serbest, yani `python -c "import os; os.remove(...)"` hi�
 Komut adına bakan bir izin listesi, programın İÇİNDE ne yaptığını bilemez; gerçek sandbox işletim sistemi
 seviyesinde (konteyner, ayrı kullanıcı) olur.
 
-Çalıştır:  .venv/bin/python step5_shell.py [--no-think] [--maks-tur N] [--model AD] [--host URL]
+Çalıştır:  .venv/bin/python step5_shell.py [--no-think] [--dusunme-siniri SN] [--maks-tur N] [--model AD] [--host URL]
 Komutlar:  /sifirla   /cikis
 """
 import shlex

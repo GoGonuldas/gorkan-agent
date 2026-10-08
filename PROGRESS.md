@@ -376,3 +376,40 @@ bekleyin" deyip durma) yine 0/3.
 
 **Sıradaki:** Adım 8 (proje hafızası, özetleme). Aday iyileştirmeler: düşünme için süre sınırı; #8 kontrolünü
 "çıktıda 55 geçiyor mu"ya gevşetmek.
+
+## Adım 7c — Düşünme takılırsa düşünmeden yeniden sor + bağlantı zaman aşımı
+
+**Ne yaptık** (`step3_agent.py`, tüm adımlar bunu kullanıyor)
+- `modeli_cagir`: think açıkken cevap akışla (stream) alınıyor. `DUSUNME_SINIRI` (60 sn, `--dusunme-siniri`) geçtiği
+  hâlde ne metin ne araç çağrısı gelmediyse akış kapatılıp aynı istek **think=False** ile yeniden soruluyor.
+  Düşünme bitip sonuç boşsa da aynısı.
+- `ollama.Client(timeout=httpx.Timeout(180, connect=10))`: sunucudan 180 sn hiç veri gelmezse çağrı kesiliyor.
+  Düşünürken olursa düşünmeden yeniden soruluyor; düşünmeden çağrıda olursa hata yukarı çıkıyor (sohbet çökmüyor,
+  eval'de o çalıştırma başarısız).
+- `step6_eval.py`: her çalıştırmada kaç kez yedeğe düşüldüğü (`yedek`) kaydediliyor.
+
+**Neden iki ayrı sınır:** 60 sn kontrolü sadece sunucudan parça geldikçe çalışıyor. İlk 14b ölçümünde #9'un bir
+denemesi **4243 sn (70 dk)** bekleyip `Connection reset by peer` ile düştü: sunucu sessiz kaldı, döngü hiç uyanmadı.
+Sebep: `ollama.Client`'ın **varsayılan zaman aşımı yok**. Hangi çağrının takıldığı (düşünerek mi, yedek mi) loglardan
+görülemedi. 1 sn zaman aşımıyla elle test: önce yedeğe düştü, yedek de aşınca `ReadTimeout` yukarı çıktı (2 sn).
+
+**Sonuç** (think açık, 3 deneme/görev)
+| Model | önce (Adım 7b) | 60 sn sınırı | + 180 sn zaman aşımı | yedek |
+|---|---|---|---|---|
+| qwen3:8b | 28/30, ort. 74 sn | **29/30, ort. 31 sn** | — | 0 kez |
+| qwen3:14b | 27/30, ort. 65 sn | 28/30, ort. 202 sn (70 dk'lık takılma) | **29/30, ort. 62 sn** | 14 kez / 10 çalıştırma |
+
+Dosyalar: `eval_sonuclar/20261007-194352-qwen3_8b.json`, `…-210925-qwen3_14b.json` (takılmalı),
+`20261008-130914-qwen3_14b.json`.
+
+- 8b'nin tek başarısızlığı yine aşırı katı "Sonuç: 55" kontrolü; 14b'ninki #2 listele+oku (bir deneme).
+- 14b'de yedeğe düşülen 10 çalıştırmanın **10'u da başarılı**. #6 düzenle'de her denemede 2 kez düştü: 14b bu görevde
+  düzenli olarak 60 sn'den uzun düşünüyor, düşünmeden de doğru yapıyor.
+
+**Dersler**
+- 8b'de yedek hiç tetiklenmedi; ortalamanın 74 → 31 sn'ye inmesi 24 dk'lık takılmanın **tekrarlanmamasından**,
+  yedeğin katkısı değil. Nadir olayı düzelten bir şeyi tek ölçüm kanıtlamaz.
+- Ağ üzerinden çağrının her zaman bir zaman aşımı olmalı; kütüphanenin varsayılanına güvenme (burada: yok).
+- Süre kontrolünü veri gelince yapan döngü, verinin hiç gelmediği durumu yakalayamaz.
+
+**Sıradaki:** Adım 8 (proje hafızası, özetleme). Aday: #8 kontrolünü "çıktıda 55 geçiyor mu"ya gevşetmek.

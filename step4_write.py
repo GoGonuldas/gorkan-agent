@@ -8,7 +8,7 @@ Güvenlik:
   - Diske yazmadan önce program farkı (diff) gösterir ve onay ister. Onayı model değil program sorar,
     model bu adımı atlayamaz. Reddedilirse model bunu (ve varsa nedenini) araç sonucu olarak görür.
 
-Çalıştır:  .venv/bin/python step4_write.py [--no-think] [--maks-tur N] [--model AD] [--host URL]
+Çalıştır:  .venv/bin/python step4_write.py [--no-think] [--dusunme-siniri SN] [--maks-tur N] [--model AD] [--host URL]
 Komutlar:  /sifirla   /cikis
 """
 import difflib
