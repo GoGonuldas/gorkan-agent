@@ -21,7 +21,8 @@ MAKS_KARAKTER = 10_000  # çok büyük dosya bağlamı doldurmasın
 
 SYSTEM = (
     "Sen yardımsever bir asistansın. Türkçe, kısa ve net cevap ver. "
-    "Dosyalar hakkındaki sorular için araçları kullan; dosya içeriğini tahmin etme."
+    "Dosyalar hakkındaki sorular için araçları kullan; dosya içeriğini tahmin etme. "
+    "Dosya ve klasör adlarını aynen yaz, Türkçeye çevirme (ör. 'step2_tools.py', 'adım2_araçlar.py' değil)."
 )
 
 

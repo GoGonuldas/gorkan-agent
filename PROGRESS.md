@@ -555,3 +555,23 @@ Dosyalar: `eval_sonuclar/20261008-150703-qwen3_8b.json`, `…-151858-qwen3_14b.j
 - Tekrarlayan bir başarısızlık rastgelelik değil, modelin bir alışkanlığıdır (14b: Türkçe sistem mesajında dosya
   adlarını çevirmek). Aday düzeltme: system mesajına "dosya adlarını aynen yaz, çevirme".
 - 3 deneme/görevle 28/30 ile 30/30 arası fark gürültü sınırında; "8b, 14b'den iyi" demek için daha çok deneme gerekir.
+
+## Adım 8e — Dosya adı kuralı (14b)
+
+**Ne yaptık:** `step4_write.py` (step5/8 devralıyor) ve `step2_tools.py` system mesajına: "Dosya ve klasör adlarını
+aynen yaz, Türkçeye çevirme (ör. 'step2_tools.py', 'adım2_araçlar.py' değil)."
+
+**Neredeyse yapılan hata:** ilk yazdığım örnek `'step6_eval.py', 'adım6_eval.py' değil` idi: #2'nin doğru cevabı
+system mesajına sızacaktı ve ölçüm anlamsız olacaktı. Ölçümden önce fark edilip testte cevap olmayan bir dosyayla
+değiştirildi (8a'daki kural: örnek testten farklı olmalı).
+
+**Sonuç** (qwen3:14b, think açık, 3 deneme/görev)
+| | #2 listele+oku | toplam | ort. süre |
+|---|---|---|---|
+| önce (8d) | 1/3 ("adım6_eval.py") | 28/30 | 61 sn |
+| kural ile | **3/3** | **30/30 (%100)** | 61 sn |
+
+Dosya: `eval_sonuclar/20261008-160731-qwen3_14b.json`. Diğer görevlerde gerileme yok.
+
+**Ders:** tekrarlayan bir model alışkanlığı tek cümlelik açık bir kuralla düzelebiliyor (7b'deki silme cümlesi gibi);
+ama kuralın örneği ölçülen cevabı içermemeli, yoksa ölçülen şey kural değil kopyalamadır.
