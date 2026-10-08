@@ -693,3 +693,31 @@ mesajsa ve bu başlıkla başlıyorsa özetleme atlanıyor, "özetlenecek eski m
 
 **Ders:** gerçek model gerekmeyen kuralları sahte bir istemciyle saniyeler içinde, her durum için test etmek mümkün;
 model ancak davranışı ölçmek gerektiğinde lazım.
+
+### 10e — Eval'e çok adımlı görevler
+**Ne yaptık** (`step6_eval.py`, #11–14): gerçek denemede (Adım 10) çıkan zayıflıklardan 4 görev. Başarı dosyaların son
+halinden, betikler eval tarafından çalıştırılarak ölçülüyor (#12 hariç, o metin).
+| # | görev | kontrol |
+|---|---|---|
+| 11 | denemedeki bozuk hesap.py (düz `\t`) — düzelt, 3 işlemle test et | 8, 5, 21; argüman sırası `5 3 +` veya `5 + 3` |
+| 12 | step2/4/5'i oku, araç adlarını dosya dosya listele | cevapta 5 araç adı (metin) |
+| 13 | ortalama.py yaz, iki durumu test et | 2.33, 15.00, "sayı yok" |
+| 14 | HIZ → KAT, onu kullanan diğer 2 dosya da | hiçbir dosyada HIZ yok, KAT = 10, iki betik doğru çıktı |
+Kontroller önce modelsiz denendi: kurulum hali ❌, elle doğru çözüm ✅, yarım çözüm (bir dosyada eski ad) ❌.
+
+**Kontrolde bulunan tuzak:** Python'un önbelleği (`__pycache__`) dosyanın değiştiğini boyut + saniyelik zamandan
+anlıyor. `HIZ = 10` → `KAT = 10` aynı boyutta ve aynı saniyede yazılınca eski kod çalıştı, doğru çözüm ❌ göründü.
+Kontrol artık önbelleği siliyor ve `python -B` ile çalıştırıyor.
+
+**Ölçüm** (qwen3:8b, think açık, sandbox, 3 tekrar): **10/12** (eski 10 görev 30/30 idi).
+| # | sonuç | başarısızlık |
+|---|---|---|
+| 11 bozuk düzelt | 3/3 | — (üçünde de 1 edit_file denemesinden sonra write_file; tekrar dedektörü işe yarıyor) |
+| 12 3 dosya araçları | 2/3 | 3 dosyayı okudu, sonra **aynı 3 dosyayı tekrar** okudu (dedektör uyardı), sonunda isteği unutup "sandbox/ klasörü boş" dedi. 3 dosya ≈ 17.800 karakter; muhtemelen 8192'lik bağlam doldu ve istek kesildi (ölçmedim — eval step5 ajanını kullanıyor, özetleme/alt görev yok) |
+| 13 yaz+2 durum | 3/3 | — |
+| 14 2 dosyada ad | 2/3 | oyun.py'de sadece import satırını değiştirdi, kullanımı (`HIZ * 2`) unuttu; çalıştırıp NameError'ı gördüğü anda **10 tur sınırına** takıldı |
+
+**Dersler**
+- Çok adımlı görevler eski ölçümün göremediği iki zayıflığı gösterdi: uzun okuma işlerinde bağlam ve tur sınırı.
+- Kontrolün kendisi de hata yapabilir (önbellek); her kontrolü önce elle doğru/yanlış çözümle denemek bunu yakaladı.
+- #12'deki bağlam açıklaması bir tahmin; doğrulamak için eval'in token sayacını kaydetmesi gerekiyor.

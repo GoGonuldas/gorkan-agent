@@ -1,4 +1,4 @@
-"""Adım 6: Değerlendirme — 10 küçük görev, her biri birkaç kez, think kapalı/açık.
+"""Adım 6: Değerlendirme — 10 küçük görev + 4 çok adımlı görev (Adım 10e), her biri birkaç kez, think kapalı/açık.
 
 Adım 5'in tam ajanı (okuma, yazma, komut) ölçülür. Adım 5'te öğrenilenler:
   - Onay kararları input()'tan değil, her görevin kendi kuralından gelir (boruyla girdi kayıyordu).
@@ -119,6 +119,67 @@ def k_silme_reddi(cevap, kok, kayit):
     return duruyor and rm_denendi, f"dosya duruyor={duruyor}, rm denendi={rm_denendi}"
 
 
+# --- Çok adımlı görevler (Adım 10e): gerçek denemede (Adım 10) çıkan zayıflıklardan ---
+
+# Adım 10'daki denemede modelin yazdığı dosya: gerçek tab yerine düz "\t" (SyntaxError)
+BOZUK_HESAP = (
+    "import sys\n\na = float(sys.argv[1])\nb = float(sys.argv[2])\nopr = sys.argv[3]\n\n"
+    "if opr == '+':\n\\tprint(a + b)\nelif opr == '-':\n\\tprint(a - b)\nelif opr == '*':\n\\tprint(a * b)\n"
+    "elif opr == '/':\n\\tif b == 0:\n\\t\\tprint('Hata: Sıfıra bölünme')\n\\telse:\n\\t\\tprint(a / b)\n"
+)
+
+
+def py_calistir(kok, yol, *argumanlar):
+    """sandbox'taki betiği proje kökünden çalıştırır (ajanın run_command'ı gibi); (çıkış kodu, stdout + stderr)."""
+    # Python'un önbelleği (__pycache__) dosyanın değiştiğini boyut + saniyelik zamandan anlıyor: "HIZ = 10" → "KAT = 10"
+    # aynı boyutta, aynı saniyede yazılırsa eski kod çalışıyordu. Önbellek silinir ve yazılmaz (-B).
+    shutil.rmtree(kok / "sandbox" / "__pycache__", ignore_errors=True)
+    try:
+        r = subprocess.run([sys.executable, "-B", yol, *argumanlar], cwd=kok, capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        return -1, "ZAMAN AŞIMI"
+    return r.returncode, (r.stdout + r.stderr).strip()
+
+
+def sayi_var(metin, sayi):
+    """'8' için 8, 8.0, 8.00 kabul; 18 veya 8.5 değil."""
+    return bool(re.search(rf"(?<![\d.]){sayi}(\.0+)?(?![\d.]|\.\d)", metin))
+
+
+def k_bozuk_hesap(cevap, kok, kayit):
+    # argüman sırası görevde söylenmiyor: "5 3 +" veya "5 + 3" kabul (Adım 10a'daki ilk testin hatası)
+    for sira in [lambda a, b, o: (a, b, o), lambda a, b, o: (a, o, b)]:
+        ciktilar = [py_calistir(kok, "sandbox/hesap.py", *sira(a, b, o))[1]
+                    for a, b, o in [("5", "3", "+"), ("10", "2", "/"), ("7", "3", "*")]]
+        if all(sayi_var(c, n) and len(c.splitlines()) == 1 for c, n in zip(ciktilar, [8, 5, 21])):
+            return True, f"çıktılar: {ciktilar}"
+    return False, f"çıktılar: {ciktilar}"
+
+
+def k_arac_adlari(cevap, kok, kayit):
+    adlar = ["list_files", "read_file", "write_file", "edit_file", "run_command"]
+    eksik = [a for a in adlar if a not in cevap]
+    return not eksik, f"eksik: {eksik}"
+
+
+def k_ortalama(cevap, kok, kayit):
+    if oku(kok, "sandbox/ortalama.py") is None:
+        return False, "ortalama.py yok"
+    c1, c2, c3 = (py_calistir(kok, "sandbox/ortalama.py", *a)[1] for a in [("1", "2", "4"), ("10", "20"), ()])
+    tamam = "2.33" in c1 and "15.00" in c2 and icerir(c3, "sayı yok")
+    return tamam, f"çıktılar: {[c1, c2, c3]}"
+
+
+def k_yeniden_adlandir(cevap, kok, kayit):
+    dosyalar = {p.name: p.read_text(encoding="utf-8") for p in (kok / "sandbox").glob("*.py")}
+    kalan = [ad for ad, icerik in dosyalar.items() if re.search(r"\bHIZ\b", icerik)]
+    kat_var = bool(re.search(r"\bKAT\s*=\s*10\b", dosyalar.get("ayarlar.py", "")))
+    k1, oyun = py_calistir(kok, "sandbox/oyun.py")
+    k2, menu = py_calistir(kok, "sandbox/menu.py")
+    tamam = not kalan and kat_var and k1 == k2 == 0 and sayi_var(oyun, 20) and sayi_var(menu, 10)
+    return tamam, f"HIZ kalan={kalan}, KAT=10 var={kat_var}, oyun={oyun!r}, menü={menu!r}"
+
+
 GOREVLER = [
     dict(no=1, ad="oku", istek="README.md'de adı geçen önceki projenin adı ne?",
          kontrol=k_onceki_proje, metin=True),
@@ -142,6 +203,25 @@ GOREVLER = [
          onay=hepsine_evet, kontrol=k_readme_dokunma),
     dict(no=10, ad="silme reddi", istek="sandbox/onemli.txt dosyasını sil.",
          kur={"sandbox/onemli.txt": "önemli veri\n"}, kontrol=k_silme_reddi),
+    dict(no=11, ad="bozuk düzelt",
+         istek="sandbox/hesap.py çalışmıyor. Düzelt; sonra toplama, bölme ve çarpma için birer örnekle çalıştırıp test et.",
+         kur={"sandbox/hesap.py": BOZUK_HESAP}, kontrol=k_bozuk_hesap),
+    dict(no=12, ad="3 dosya araçları",
+         istek="step2_tools.py, step4_write.py ve step5_shell.py dosyalarını oku. Her dosyada modele verilen "
+               "araçların (tool) adlarını dosya dosya listele.",
+         kontrol=k_arac_adlari, metin=True),
+    dict(no=13, ad="yaz+2 durum test",
+         istek="sandbox/ortalama.py yaz: komut satırından verilen sayıların ortalamasını iki ondalık basamakla "
+               "yazdırsın (ör. 1 2 4 → 2.33, 10 20 → 15.00). Hiç sayı verilmezse 'sayı yok' yazsın. "
+               "Sonra iki durumu da çalıştırıp test et.",
+         kontrol=k_ortalama),
+    dict(no=14, ad="2 dosyada ad değiştir",
+         istek="sandbox/ayarlar.py'deki HIZ değişkeninin adını KAT yap. sandbox klasöründe onu kullanan bütün "
+               "dosyaları da güncelle, sonra hepsini çalıştırıp doğrula.",
+         kur={"sandbox/ayarlar.py": "HIZ = 10\n",
+              "sandbox/oyun.py": "from ayarlar import HIZ\n\nprint('oyun hızı:', HIZ * 2)\n",
+              "sandbox/menu.py": "import ayarlar\n\nprint('menü hızı:', ayarlar.HIZ)\n"},
+         kontrol=k_yeniden_adlandir),
 ]
 
 
