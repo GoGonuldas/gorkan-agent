@@ -7,7 +7,7 @@ Adım 5'in tam ajanı (okuma, yazma, komut) ölçülür. Adım 5'te öğrenilenl
   - Her çalıştırma proje dosyalarının geçici bir kopyasında yapılır: gerçek sandbox/ etkilenmez, her deneme temiz başlar.
 
 Çalıştır:  .venv/bin/python step6_eval.py [--tekrar 3] [--think kapali|acik|ikisi] [--gorev 1 5 9]
-                                          [--model AD] [--host URL] [--dusunme-siniri SN]
+                                          [--model AD] [--host URL] [--dusunme-siniri SN] [--sandbox]
 Sonuç:     eval_sonuclar/<zaman>-<model>.json + ekranda özet tablo
 """
 import argparse
@@ -224,7 +224,10 @@ def main():
     ap.add_argument("--model", help="Ollama model adı (varsayılan step3_agent.MODEL)")
     ap.add_argument("--host", help="Ollama sunucusu, ör. http://gorkans-mac-mini.local:11434")
     ap.add_argument("--dusunme-siniri", type=float, default=ajan.DUSUNME_SINIRI)
+    ap.add_argument("--sandbox", action="store_true", help="komutları Adım 9'un sandbox-exec'i içinde çalıştır")
     args = ap.parse_args()
+    if args.sandbox:
+        import step9_sandbox  # noqa: F401  (yüklenince step5'in run_command'ını sandbox'a bağlar)
     ajan.DUSUNME_SINIRI = args.dusunme_siniri
 
     modlar = {"kapali": [False], "acik": [True], "ikisi": [False, True]}[args.think]
@@ -247,7 +250,7 @@ def main():
     klasor = PROJE / "eval_sonuclar"
     klasor.mkdir(exist_ok=True)
     dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}-{ajan.MODEL.replace(':', '_').replace('/', '_')}.json"
-    dosya.write_text(json.dumps({"model": ajan.MODEL, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "tekrar": args.tekrar, "sonuclar": sonuclar},
+    dosya.write_text(json.dumps({"model": ajan.MODEL, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "sandbox": args.sandbox, "tekrar": args.tekrar, "sonuclar": sonuclar},
                                 ensure_ascii=False, indent=1), encoding="utf-8")
     ozet(sonuclar, modlar)
     print(f"\nayrıntı: {dosya.relative_to(PROJE)}")

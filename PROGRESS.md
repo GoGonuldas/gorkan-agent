@@ -575,3 +575,43 @@ Dosya: `eval_sonuclar/20261008-160731-qwen3_14b.json`. Diğer görevlerde gerile
 
 **Ders:** tekrarlayan bir model alışkanlığı tek cümlelik açık bir kuralla düzelebiliyor (7b'deki silme cümlesi gibi);
 ama kuralın örneği ölçülen cevabı içermemeli, yoksa ölçülen şey kural değil kopyalamadır.
+
+## Adım 9 — İşletim sistemi sandbox'ı (sandbox-exec)
+
+**Sorun:** Adım 5'ten beri bilinen açık: izin listesi komutun adına bakıyor, `python` serbest →
+`python -c "import os; os.remove('README.md')"` onaysız çalışıyordu.
+
+**Ne yaptık**
+- `step5_shell.py`: `run_command` çalıştırmadan önce `sarmala(argv)` çağırıyor (varsayılan: değiştirmez).
+- `step9_sandbox.py`: `sarmala`'yı macOS `sandbox-exec` ile değiştiriyor. Kurallar komutun başlattığı her alt süreci de
+  bağlıyor: yazma sadece `sandbox/`; ev klasöründe dosya içeriği okunamaz (proje ve projenin Python'u hariç); ağ yok.
+  Yollar profile metin olarak gömülmüyor, `-D` parametresiyle veriliyor.
+- `step6_eval.py --sandbox`: ölçümü sandbox içinde çalıştırır.
+- Docker da kurulu ama seçilmedi: servis/imaj gerektiriyor; sandbox-exec ek kurulum istemiyor, gecikmesi yok.
+
+**Başarısızlık (kurulumda):** ilk profilde ev klasörünün tamamında okuma yasaktı → Python hiç başlamadı
+(`realpath: …/.venv/bin/: Operation not permitted`): başlarken üst klasörlerin bilgisine bakıyor. Çözüm: sadece
+dosya içeriği (`file-read-data`) yasak, bilgi (metadata) serbest.
+
+**Güvenlik testi** (geçici kopyada, aynı komutlar, tüm onaylar "evet" = en kötü kullanıcı)
+| komut | sandbox'sız | sandbox'lı |
+|---|---|---|
+| `python -c` ile README sil | **silindi** | Operation not permitted |
+| `rm README.md` (onaylı) | (zaten silinmişti) | Operation not permitted |
+| `python -c` ev klasörüne yaz | **yazıldı** | Operation not permitted |
+| `python -c` `~/.zshrc` oku | **1187 karakter okundu** | Operation not permitted |
+| `python -c` ağ (example.com) | **200** | bağlantı yok |
+| `python -c` sandbox'a yaz, `cat README.md`, `python sandbox/kare.py` | çalıştı | çalıştı |
+
+**Ölçüm** (qwen3:8b, think açık, `--sandbox`): **29/30 (%97)**, ort. 23 sn. Komut kullanan #8 ve #10: 3/3.
+Tek başarısızlık #3: 7 dosyayı tek tek sayıp "8 adet" dedi (komut kullanılmayan bir görev, sandbox'la ilgisiz).
+Dosya: `eval_sonuclar/20261008-162226-qwen3_8b.json`.
+
+**Dersler**
+- Komut adına bakan izin listesi ile çekirdek seviyesindeki kısıt farklı katmanlar: liste neyin **sorulacağına**,
+  sandbox neyin **mümkün olduğuna** karar veriyor. Kullanıcı yanlışlıkla onaylasa bile sandbox/ dışına yazılamıyor.
+- Yasak listesi ne kadar geniş tutulursa araçlar o kadar beklenmedik yerden kırılıyor (Python'un yol çözmesi); her
+  kuralı tek tek denemek gerekiyor.
+- Sınırlar: profil "her şeye izin ver, şunları yasakla" biçiminde (süreç başlatma, IPC serbest); sandbox-exec
+  Apple'ın eskimiş saydığı ama çalışan bir araç; sadece macOS. Ajanın kendi araçları (write_file, read_file) sandbox'ta
+  değil, Python kodundaki kilitlerle korunuyor.

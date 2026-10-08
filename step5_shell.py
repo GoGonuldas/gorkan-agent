@@ -11,7 +11,7 @@ Güvenlik:
   - Proje kökünde çalışır (dosya araçlarıyla aynı yollar: 'sandbox/x.py'), 30 sn zaman aşımı, çıktı kısaltılır.
 Bilinen açık: python serbest, yani `python -c "import os; os.remove(...)"` hiçbir kontrole takılmaz.
 Komut adına bakan bir izin listesi, programın İÇİNDE ne yaptığını bilemez; gerçek sandbox işletim sistemi
-seviyesinde (konteyner, ayrı kullanıcı) olur.
+seviyesinde (konteyner, ayrı kullanıcı) olur. → Adım 9 (step9_sandbox.py) bunu sandbox-exec ile kapatıyor.
 
 Çalıştır:  .venv/bin/python step5_shell.py [--no-think] [--dusunme-siniri SN] [--num-ctx N] [--maks-tur N] [--model AD] [--host URL]
 Komutlar:  /sifirla   /cikis
@@ -59,6 +59,11 @@ def izin_seviyesi(argv):
     return "serbest", ""
 
 
+def sarmala(argv):
+    """Çalıştırmadan hemen önce komutu sarmalar. Burada olduğu gibi döner; Adım 9 bunu sandbox-exec ile değiştirir."""
+    return argv
+
+
 def run_command(command):
     try:
         argv = parcala(command)
@@ -85,7 +90,7 @@ def run_command(command):
     if argv[0] in ("python", "python3"):
         argv[0] = sys.executable  # projenin venv'indeki python
     try:
-        sonuc = subprocess.run(argv, cwd=okuma.KOK, capture_output=True, text=True, timeout=ZAMAN_ASIMI)
+        sonuc = subprocess.run(sarmala(argv), cwd=okuma.KOK, capture_output=True, text=True, timeout=ZAMAN_ASIMI)
     except FileNotFoundError:
         return f"HATA: '{argv[0]}' diye bir komut bulunamadı"
     except subprocess.TimeoutExpired:
