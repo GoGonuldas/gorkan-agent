@@ -8,7 +8,7 @@ Her oturum boş başlıyor: önceki oturumda öğrenilen ("bu projede şöyle ya
     ve sadece ekleme yapılır (var olan satırlar silinemez/değişemez).
 Hafıza her istekte bağlamda yer kaplar, bu yüzden boyut sınırı var.
 
-Çalıştır:  .venv/bin/python step8_memory.py [--no-think] [--dusunme-siniri SN] [--maks-tur N] [--model AD] [--host URL]
+Çalıştır:  .venv/bin/python step8_memory.py [--no-think] [--dusunme-siniri SN] [--num-ctx N] [--maks-tur N] [--model AD] [--host URL]
 Komutlar:  /sifirla   /cikis
 """
 import step2_tools as okuma

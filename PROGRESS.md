@@ -445,3 +445,47 @@ bu satır sonraki oturumda kural gibi okunmadı. Kuralın tam cümleyle yazıld�
 - Ölçüm küçük (3+3 deneme, tek görev); sadece 8b-açık denendi.
 
 **Sıradaki:** Adım 8b — uzun konuşmayı özetleme (bağlam dolunca eski mesajları özetle).
+
+## Adım 8b — Uzun konuşmayı özetleme
+
+**Sorun (ölçüldü):** Ollama'nın bağlam penceresi varsayılan **4096 token** (`ollama ps` → CONTEXT 4096; model 40960'ı
+destekliyor). Aşılınca hata yok:
+- Tek mesaj sığmıyorsa başı kesiliyor; sunucu kaydında sadece `truncating input prompt limit=4096 prompt=12527 keep=4`.
+  Test: "gizli kelimem ZEYTİN" + PROGRESS.md → 3000 karakterde doğru, 12000'de "bash", tamamında "gorkan" cevabı.
+- Konuşma sığmıyorsa en eski mesajlar **uyarısız** atılıyor. Kanıt (dolaylı): 8192'lik testte biz hiçbir şey silmeden
+  token sayısı 7647 → 6512'ye düştü ve kayıtta kesme uyarısı yok.
+- Sadece system + araç tarifleri 879 token. `prompt_eval_count` önbellekten etkilenmiyor (aynı istek iki kez: 879, 879).
+
+**Ne yaptık**
+- `step3_agent.py`: `NUM_CTX = 8192` (`--num-ctx`), her çağrıya `options={"num_ctx": …}`; son çağrının gerçek token
+  sayısı `SAYAC`'ta; sohbet her cevaptan sonra `(bağlam: 3120/8192 token)` yazıyor; `ajan_turu`'na `hazirla` kancası.
+- `step8_summary.py`: her model çağrısından önce token tahmini (son gerçek sayım + sonradan eklenenler için
+  karakter/3). %60'ı aşarsa son kullanıcı isteğinden önceki her şey (system hariç) modele özetletilip tek mesajla
+  değiştiriliyor. Son istek ve araç çağrıları/sonuçları bölünmüyor.
+- `step6_eval.py`: kopyalanan dosyalar step0–6 ile sabit. Yoksa yeni adım dosyaları "kaç dosya" ve "en büyük
+  numaralı" görevlerinin doğru cevabını değiştiriyordu (8a'da "sekiz" eklemiştim, geri alındı).
+
+**Test** (qwen3:8b, think kapalı, num_ctx 8192): "Gizli kelimem ZEYTİN, en sevdiğim sayı 42" → 6 dosya okut
+(PLAN, step2–6) → "Gizli kelimem ve sayım neydi?"
+| | sonuç | örnek cevap |
+|---|---|---|
+| özetsiz | 0/3 | "görkan", 7 / "bilgi vermem gerekiyor" (uydurdu ya da bilmedi) |
+| özetli, ilk istek metni | 0/1 | "…bu bilgileri paylaşın" |
+| özetli, düzeltilmiş istek | **3/3** | "ZEYTİN", 42 |
+
+**Başarısızlık:** ilk özet isteğinde (system'de talimat + user'da çıplak döküm) özetleyici dökümü **sürdürdü**: son
+soruya cevap verdi ("step2_tools.py dosyası … araçları tanımlar") ve baştaki bilgileri hiç yazmadı. Sonraki
+özetlemede bu "özet" tekrar özetlendi, bilgi tamamen kayboldu.
+→ Döküm `<dokum>` etiketleri içinde, talimat dökümden **sonra** tekrarlanıyor ("TAMAMINI özetle, sorulara cevap
+verme") ve üç sabit başlık isteniyor: "Kullanıcının verdiği bilgiler ve tercihler (BİREBİR; önceki özettekileri de
+taşı)", "Yapılanlar", "Yarım kalan işler".
+
+**Dersler**
+- Bağlam taşması sessiz bir hata: ne istisna ne uyarı, model sadece unutur ve uydurur. Pencereyi açıkça
+  ayarlamak ve dolulukları ölçmek gerekiyor; kütüphane varsayılanına güvenme (7c'deki zaman aşımı gibi).
+- Özetleyiciye verilen konuşma, model için hâlâ "bir konuşma": cevaplamaya çalışır. Döküm veri olarak
+  işaretlenmeli, talimat sona konmalı.
+- Özet tekrar tekrar özetlenir (bu testte 4–5 kez); korunması gereken bilgi için açık bir başlık lazım, yoksa her
+  turda biraz daha silinir.
+- Bilinen sınır: tek istek pencereyi doldurursa (uzun araç zinciri) özetlenecek eski mesaj yok, sadece uyarı.
+- Eval artık 4096 değil 8192 ile çalışıyor (görevler küçük, etkisi ölçülmedi).

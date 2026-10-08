@@ -11,7 +11,7 @@ Araçlar Adım 2'den geliyor (list_files, read_file; proje klasörü dışına �
 
 Düşünme takılırsa (DUSUNME_SINIRI saniyeyi aşar ya da boş sonuç verirse) aynı istek düşünmeden yeniden sorulur.
 
-Çalıştır:  .venv/bin/python step3_agent.py [--no-think] [--dusunme-siniri SN] [--maks-tur N] [--model AD] [--host URL]
+Çalıştır:  .venv/bin/python step3_agent.py [--no-think] [--dusunme-siniri SN] [--num-ctx N] [--maks-tur N] [--model AD] [--host URL]
            ör. --model qwen3:14b --host http://gorkans-mac-mini.local:11434  (model başka makinede çalışır,
            araçlar yine bu bilgisayarda)
 Komutlar:  /sifirla   /cikis
@@ -32,6 +32,11 @@ ZAMAN_ASIMI = httpx.Timeout(180, connect=10)
 ISTEMCI = ollama.Client(timeout=ZAMAN_ASIMI)  # host verilmezse OLLAMA_HOST ya da localhost:11434
 # Adım 7b'de 8b bir istekte 24 dk düşünüp boş cevap verdi. Normal düşünme çağrı başına genelde 10-30 sn.
 DUSUNME_SINIRI = 60
+# Ollama'nın varsayılanı 4096 token. Aşılınca hata vermiyor: en eski mesajları sessizce atıyor, tek mesaj sığmazsa
+# onun başını kesiyor (Adım 8b). Büyüdükçe bellek de artar (qwen3:8b'de 8192 ≈ +0.7 GB).
+NUM_CTX = 8192
+# son çağrının gerçek token sayısı (prompt + cevap) ve o çağrıda kaç mesaj vardı; bağlam takibi için
+SAYAC = {"mesaj": 0, "token": 0}
 
 
 def ayarla(model=None, host=None, think=True):
@@ -56,18 +61,23 @@ def modeli_cagir(mesajlar, tarifler, think):
     Düşünme bitip sonuç boş çıkarsa ya da sunucu ZAMAN_ASIMI boyunca hiç veri göndermezse de aynısı yapılır.
     Düşünmeden çağrıda zaman aşımı olursa hata yukarı çıkar (sonsuza kadar beklemek yerine).
     """
+    secenek = {"num_ctx": NUM_CTX}
     if not think:
-        return ISTEMCI.chat(model=MODEL, messages=mesajlar, tools=tarifler, think=False).message
+        r = ISTEMCI.chat(model=MODEL, messages=mesajlar, tools=tarifler, think=False, options=secenek)
+        kaydet(mesajlar, r)
+        return r.message
 
     t0 = time.time()
     icerik, dusunce, araclar = "", "", []
-    akis = ISTEMCI.chat(model=MODEL, messages=mesajlar, tools=tarifler, think=True, stream=True)
+    akis = ISTEMCI.chat(model=MODEL, messages=mesajlar, tools=tarifler, think=True, stream=True, options=secenek)
     try:
         for parca in akis:
             m = parca.message
             dusunce += m.thinking or ""
             icerik += m.content or ""
             araclar += m.tool_calls or []
+            if parca.done:
+                kaydet(mesajlar, parca)
             if not icerik and not araclar and time.time() - t0 > DUSUNME_SINIRI:
                 akis.close()
                 print(f"  (düşünme {DUSUNME_SINIRI} sn'yi aştı → düşünmeden yeniden soruluyor)")
@@ -83,12 +93,20 @@ def modeli_cagir(mesajlar, tarifler, think):
     return ollama.Message(role="assistant", content=icerik, thinking=dusunce or None, tool_calls=araclar or None)
 
 
-def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calistir):
+def kaydet(mesajlar, cevap):
+    SAYAC["mesaj"] = len(mesajlar)
+    SAYAC["token"] = (cevap.prompt_eval_count or 0) + (cevap.eval_count or 0)
+
+
+def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calistir, hazirla=None):
     """Bir kullanıcı isteği için döngüyü çalıştırır; son cevabı döndürür.
 
     tarifler/calistir: sonraki adımlar kendi araç setleriyle aynı döngüyü kullanabilsin diye parametre.
+    hazirla(mesajlar): her model çağrısından önce çalışır, listeyi yerinde değiştirebilir (Adım 8b: özetleme).
     """
     for tur in range(1, maks_tur + 1):
+        if hazirla:
+            hazirla(mesajlar)
         mesaj = modeli_cagir(mesajlar, tarifler, think)
         mesajlar.append(mesaj)
 
@@ -104,23 +122,25 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
     return f"(durduruldu: {maks_tur} tur sınırına ulaşıldı, model hâlâ araç istiyordu)"
 
 
-def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir):
+def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir, hazirla=None):
     """Terminal sohbeti: argümanları okur, kullanıcıdan istek alır, her isteği ajan_turu ile işler.
 
     Sonraki adımlar kendi system mesajı ve araç setiyle bunu çağırır.
     """
-    global DUSUNME_SINIRI
+    global DUSUNME_SINIRI, NUM_CTX
     ap = argparse.ArgumentParser()
     # varsayılan açık: Adım 6'da think açık %97, kapalı %63 (ama ~6.5 kat yavaş). Kapatmak için --no-think
     ap.add_argument("--think", action=argparse.BooleanOptionalAction, default=True, help="qwen3'ün düşünme modu")
     ap.add_argument("--maks-tur", type=int, default=10, help="bir istek için en fazla araç turu")
     ap.add_argument("--dusunme-siniri", type=float, default=DUSUNME_SINIRI,
                     help="düşünme bu kadar saniyeyi aşarsa düşünmeden yeniden sor")
+    ap.add_argument("--num-ctx", type=int, default=NUM_CTX, help="bağlam penceresi (token)")
     ap.add_argument("--model", help=f"Ollama model adı (varsayılan {MODEL})")
     ap.add_argument("--host", help="Ollama sunucusu, ör. http://gorkans-mac-mini.local:11434")
     args = ap.parse_args()
     args.think = ayarla(args.model, args.host, args.think)
     DUSUNME_SINIRI = args.dusunme_siniri
+    NUM_CTX = args.num_ctx
 
     mesajlar = [{"role": "system", "content": system}]
     adlar = ", ".join(t["function"]["name"] for t in tarifler)
@@ -143,7 +163,8 @@ def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir):
 
         mesajlar.append({"role": "user", "content": soru})
         try:
-            print(f"model> {ajan_turu(mesajlar, args.think, args.maks_tur, tarifler, calistir)}")
+            print(f"model> {ajan_turu(mesajlar, args.think, args.maks_tur, tarifler, calistir, hazirla)}")
+            print(f"  (bağlam: {SAYAC['token']}/{NUM_CTX} token)")
         except httpx.TimeoutException:
             print(f"(hata: sunucu {ZAMAN_ASIMI.read:.0f} sn cevap vermedi; tekrar dene ya da /sifirla)")
 

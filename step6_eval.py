@@ -28,7 +28,9 @@ import step5_shell as kabuk
 import step3_agent as ajan
 
 PROJE = Path(__file__).resolve().parent
-KOPYALANACAK = ["README.md", "PLAN.md", "PROGRESS.md", *sorted(p.name for p in PROJE.glob("step*.py"))]
+# step0-6 sabit: sonraki adımların dosyaları (step8_…) "kaç dosya", "en büyük numaralı" görevlerinin cevabını
+# değiştirmesin, sonuçlar zaman içinde karşılaştırılabilir kalsın (Adım 8b).
+KOPYALANACAK = ["README.md", "PLAN.md", "PROGRESS.md", *sorted(p.name for p in PROJE.glob("step[0-6]_*.py"))]
 
 
 # --- Onay kuralları: soru metni → onay mı? ---
@@ -65,7 +67,7 @@ def k_en_buyuk_step(cevap, kok, kayit):
 
 def k_step_sayisi(cevap, kok, kayit):
     adet = sum(1 for a in KOPYALANACAK if a.startswith("step"))
-    yazi = {6: "altı", 7: "yedi", 8: "sekiz"}.get(adet, "")
+    yazi = {6: "altı", 7: "yedi"}.get(adet, "")
     return str(adet) in cevap or (yazi and yazi in cevap.lower()), f"beklenen {adet}"
 
 
