@@ -17,6 +17,7 @@ Düşünme takılırsa (DUSUNME_SINIRI saniyeyi aşar ya da boş sonuç verirse)
 Komutlar:  /sifirla   /cikis
 """
 import argparse
+import json
 import time
 
 import httpx
@@ -37,6 +38,13 @@ DUSUNME_SINIRI = 60
 NUM_CTX = 8192
 # son çağrının gerçek token sayısı (prompt + cevap) ve o çağrıda kaç mesaj vardı; bağlam takibi için
 SAYAC = {"mesaj": 0, "token": 0}
+# Aynı araç + aynı argüman + aynı sonuç tekrar gelirse sonuca uyarı eklenir. Denemede 8b aynı başarısız edit_file'ı
+# 8 kez gönderip tur sınırına takıldı (Adım 10).
+TEKRAR_UYARISI = True
+TEKRAR_NOTU = (
+    "\n\nNOT: Bu aracı aynı argümanlarla daha önce çağırdın ve sonuç aynıydı. Aynısını tekrar deneme: farklı bir yol "
+    "dene (ör. dosyayı read_file ile okuyup write_file ile baştan yaz) ya da yapamadığını kullanıcıya söyle."
+)
 THINK = True  # sohbet() komut satırından ayarlar; alt görevler (Adım 8c) aynı ayarla çalışsın diye burada
 
 
@@ -105,6 +113,7 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
     tarifler/calistir: sonraki adımlar kendi araç setleriyle aynı döngüyü kullanabilsin diye parametre.
     hazirla(mesajlar): her model çağrısından önce çalışır, listeyi yerinde değiştirebilir (Adım 8b: özetleme).
     """
+    onceki = {}  # (araç adı, argümanlar) → son sonuç; bu istek boyunca
     for tur in range(1, maks_tur + 1):
         if hazirla:
             hazirla(mesajlar)
@@ -117,6 +126,12 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
         print(f"  [tur {tur}]")
         for cagri in mesaj.tool_calls:
             sonuc = calistir(cagri)
+            anahtar = (cagri.function.name, json.dumps(cagri.function.arguments, sort_keys=True, ensure_ascii=False))
+            tekrar = TEKRAR_UYARISI and onceki.get(anahtar) == sonuc
+            onceki[anahtar] = sonuc
+            if tekrar:
+                sonuc += TEKRAR_NOTU
+                print("     (tekrar: aynı çağrı, aynı sonuç → uyarı eklendi)")
             print(f"     → {len(sonuc)} karakter")
             mesajlar.append({"role": "tool", "content": sonuc, "tool_name": cagri.function.name})
 

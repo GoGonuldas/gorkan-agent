@@ -615,3 +615,41 @@ Dosya: `eval_sonuclar/20261008-162226-qwen3_8b.json`.
 - Sınırlar: profil "her şeye izin ver, şunları yasakla" biçiminde (süreç başlatma, IPC serbest); sandbox-exec
   Apple'ın eskimiş saydığı ama çalışan bir araç; sadece macOS. Ajanın kendi araçları (write_file, read_file) sandbox'ta
   değil, Python kodundaki kilitlerle korunuyor.
+
+## Adım 10 — Gerçek deneme ve bulunan zayıflıklar
+
+**Deneme** (step9_sandbox ajanı, qwen3:8b, think açık, projenin geçici kopyası, onaylar otomatik "evet"):
+| iş | sonuç |
+|---|---|
+| sandbox/hesap.py yaz + 3 örnekle test et | ❌ kodda gerçek tab yerine düz `\t` yazdı (SyntaxError); aynı başarısız `edit_file`'ı **8 kez** gönderip 10 tur sınırına takıldı |
+| modeli_cagir ne yapıyor? | ⚠️ büyük ölçüde doğru; "araç çağrılarını çalıştırır" yanlış (o ajan_turu) |
+| step2–9 tablosu (alt görevlerle) | ❌ alt_gorev açıklamasındaki örneği **birebir kopyaladı** ("DUSUNME_SINIRI ne işe yarıyor"), 8 yerine 3 alt görev, tablo tamamen uydurma (step2_setup.py…) |
+| python -c ile README'yi sil | ❌ araç çağırmadı, karışık cevap (sandbox hiç denenmedi; zarar yok) |
+| hafızaya kural öğret + yeni oturum | ✅ AGENT.md'ye tam cümle; yeni oturumda "(Özet: …)" eklendi |
+Yan bulgular: `python sandbox/hesap.py 10 2 /` her seferinde onay istedi (tek `/` "proje dışı yol" sanılıyor);
+özetleme tek başına önceki özetten ibaret "eski mesajı" yeniden özetledi (boşa çağrı).
+
+**Ders:** 10 görevlik ölçüm 30/30 diyor ama gerçek işlerde ajan çok zayıf. Ölçümdeki görevler tek adımlık ve kısa;
+uzun işlerdeki döngüler, kopyalanan örnekler, bağlam karışması ölçülmüyor.
+
+### 10a — Tekrar dedektörü
+**Ne yaptık** (`step3_agent.ajan_turu`): bir istek boyunca (araç adı, argümanlar) → sonuç tutuluyor. Aynı çağrı aynı
+sonucu tekrar verirse sonuca not ekleniyor: "Aynısını tekrar deneme: farklı bir yol dene (ör. read_file ile okuyup
+write_file ile baştan yaz) ya da yapamadığını kullanıcıya söyle." `TEKRAR_UYARISI` ile kapatılabiliyor.
+
+**İlk test yanlıştı:** açık uçlu görev ("hesap makinesi yaz") ile 3+3 deneme. Döngü durumu 6 denemenin sadece birinde
+oluştu, yani dedektör hakkında bir şey söylemedi. Kontrol de hatalıydı: argüman sırasını `5 3 +` varsaydı (model
+`5 + 3` seçince "Geçersiz sayı" → başarısız sayıldı) ve aynı satırın üç kez basıldığı çıktıyı doğru saydı.
+
+**Hedefli test:** denemedeki bozuk dosya (9 tane düz `\t`) hazır konup "çalışmıyor, düzelt ve test et" dendi. Başarı:
+dosya iki argüman sırasından birinde tam 8, 5, 21 veriyor mu.
+| tekrar uyarısı | sonuç | ne oldu |
+|---|---|---|
+| kapalı | **0/3** | 2'si 10 tur sınırında (edit/read döngüsü), 1'i sorunu anlatıp düzeltmeden bıraktı |
+| açık | **3/3** | 1–2 uyarıdan sonra üçünde de write_file ile baştan yazdı ve test etti (100–166 sn) |
+
+**Dersler**
+- Küçük model hata aldığında aynı şeyi tekrar etmeye meyilli; kendi başına "bu yol çalışmıyor" diyemiyor. Program
+  bunu ona söyleyince yolunu değiştiriyor. Notun içindeki somut öneri (write_file ile baştan yaz) birebir izlendi.
+- Nadir bir başarısızlığı düzelten şeyi ölçmek için o durumu **kasıtlı olarak** üretmek gerekiyor; açık uçlu görevi
+  tekrarlamak yetmiyor (7c'deki "24 dk düşünme" dersiyle aynı).
