@@ -680,3 +680,16 @@ için o koşulları (önceki işler + tam sistem mesajı) kurmak gerekiyor (~1 s
 
 **Ders:** aynı karakter komuta göre farklı anlam taşıyor; kural argümana tek başına değil, komutla birlikte bakmalı.
 Sandbox (Adım 9) zaten proje dışına yazmayı engellediği için bu gevşetme güvenliği azaltmıyor.
+
+### 10d — Tek başına önceki özet yeniden özetlenmesin
+**Sorun:** özet konuşmaya `user` mesajı olarak giriyor. Bağlam tekrar dolduğunda özet ile yeni istek arasında başka
+mesaj yoksa "eski mesajlar" = sadece önceki özet; o yeniden özetleniyordu (bir model çağrısı, bağlam küçülmüyor).
+
+**Ne yaptık** (`step8_summary.ozetle_gerekirse`): özetin başlığı `OZET_BASI` sabitine alındı. Eski kısım tek
+mesajsa ve bu başlıkla başlıyorsa özetleme atlanıyor, "özetlenecek eski mesaj yok" uyarısı basılıyor.
+
+**Test** (sahte model, çağrı sayılıyor; 5 durum): eski kod 4/5 (tek başına özet → 1 çağrı), yeni kod 5/5. Önceki özet
++ yeni mesajlar varsa hâlâ özetleniyor (eski özet de yeni özetin içine giriyor).
+
+**Ders:** gerçek model gerekmeyen kuralları sahte bir istemciyle saniyeler içinde, her durum için test etmek mümkün;
+model ancak davranışı ölçmek gerektiğinde lazım.

@@ -73,6 +73,9 @@ def dokum(mesajlar):
     return "\n\n".join(satirlar)
 
 
+OZET_BASI = "[Bağlam dolduğu için önceki konuşma silindi; özeti aşağıda. Buna cevap verme.]"
+
+
 def ozetle_gerekirse(mesajlar, tarifler):
     """Gerekirse mesajlar listesini YERİNDE kısaltır (sohbet aynı listeyi kullanmaya devam ediyor)."""
     tahmin = token_tahmini(mesajlar, tarifler)
@@ -81,7 +84,8 @@ def ozetle_gerekirse(mesajlar, tarifler):
     # son kullanıcı isteği ve sonrası kalır: araç çağrısı ile sonucu birbirinden ayrılmasın
     son_istek = max(i for i, m in enumerate(mesajlar) if isinstance(m, dict) and m.get("role") == "user")
     eski = mesajlar[1:son_istek]
-    if not eski:
+    if not eski or (len(eski) == 1 and isinstance(eski[0], dict) and eski[0]["content"].startswith(OZET_BASI)):
+        # tek başına önceki özeti yeniden özetlemek bağlamı küçültmez, sadece bir model çağrısı harcar
         print(f"  (uyarı: bağlam ~{tahmin}/{ajan.NUM_CTX} token ama özetlenecek eski mesaj yok)")
         return
     print(f"  (bağlam ~{tahmin}/{ajan.NUM_CTX} token → {len(eski)} eski mesaj özetleniyor)")
@@ -93,7 +97,7 @@ def ozetle_gerekirse(mesajlar, tarifler):
     ozet = r.message.content.strip()
     mesajlar[1:son_istek] = [{
         "role": "user",
-        "content": f"[Bağlam dolduğu için önceki konuşma silindi; özeti aşağıda. Buna cevap verme.]\n{ozet}",
+        "content": f"{OZET_BASI}\n{ozet}",
     }]
     ajan.SAYAC["mesaj"] = 0  # eski sayım artık bu listeye ait değil; bir sonraki tahmin karakterden
     print(f"  (özet: {len(ozet)} karakter; yeni tahmin ~{token_tahmini(mesajlar, tarifler)} token)")
