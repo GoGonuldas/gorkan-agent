@@ -785,3 +785,24 @@ okudu (9254) ve başarısız. #14'te alt_gorev hiç çağrılmadı (değiştirme
 - 8b'de yönlendirme system mesajında işe yaramıyor, araç tarifinde biraz yarıyor (~%40), güvenilir değil.
 - Araç tarifindeki kalıp ya da örnek kopyalanıyor (10b'deki endişe bu sefer görüldü): düz tarif daha güvenli.
 - Sıradaki: kod düzeyinde koruma — dosya bağlamı aşacaksa içerik yerine "alt_gorev ile oku" notu dönsün.
+
+### 10h — Bağlam koruması (kod düzeyinde)
+**Ne yaptık** (`step8_subtask.py`): ana ajanın `read_file`'ı, konuşmanın tahmini (8b'nin `token_tahmini`) + dosyanın
+tahmini (karakter/3) `NUM_CTX`'in %75'ini geçecekse içerik yerine not döndürüyor: "OKUNMADI … alt_gorev kullan;
+değiştirmen gerekiyorsa kullanıcıya bağlamın yetmediğini söyle". Kalan %25 düşünme + cevap için. Aynı turdaki önceki
+okumalar da sayılıyor: `hazirla()` her model çağrısından önce konuşmanın listesini bağlıyor (`step9_sandbox` ve eval de
+bunu kullanıyor). Alt ajanın `read_file`'ı korumasız. Modelsiz deneme: #12'nin 3 dosyası → ilk ikisi verildi, üçüncü
+(~1896 token, bağlam ~5617) engellendi; küçük dosya geçti.
+
+**Eval** (tam ajan, think açık, #11–14 ×3): **9/12**.
+| # | sonuç | not |
+|---|---|---|
+| 11 | 3/3 | koruma hiç tetiklenmedi |
+| 12 | **3/3** | koruma 3/3 tetiklendi, model 3/3 ardından alt_gorev'e geçti; bağlam **5373–6547** (10g: 7561–9254, iki taşma) |
+| 13 | 3/3 | — |
+| 14 | 0/3 | koruma tetiklenmedi (dosyalar küçük); üçünde de `oyun.py`'de `HIZ * 2` kaldı, birinde NameError'ı tam 10. turda gördü |
+#14 önceki ölçümlerde 1/3, 2/3, 2/3: aynı bilinen zayıflık, korumayla ilgisi yok (3 tekrarda dalgalanma).
+
+**Dersler**
+- 8b'de talimatın tutmadığı yerde kod tutuyor: model engeli görünce kendiliğinden alt_gorev'e geçti (3/3).
+- Koruma sadece aşmayı önlüyor; çok dosyalı okumada ilk dosyalar yine ana bağlama giriyor.

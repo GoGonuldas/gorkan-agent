@@ -57,7 +57,35 @@ def alt_araci_calistir(cagri):
     return yazma.araci_calistir(cagri, okuma.ARACLAR)
 
 
-ARACLAR = {**hafiza.ARACLAR, "alt_gorev": alt_gorev}
+# Adım 10h: bağlam koruması. 10g'de tarif yönlendirmesi #12'de ilk turda 0/3 tuttu; model 3 dosyayı kendisi okuyup
+# pencereyi aşıyordu (özetleme yardım edemez: hepsi son isteğe ait). Okunan dosya, konuşmanın tahmini + dosyanın
+# tahmini KORUMA_ESIK'i geçecekse içerik yerine not döner. Kalan pay düşünme ve cevap için (düşünme 1000–2000 token).
+KORUMA_ESIK = 0.75
+KONUSMA = {"mesajlar": None}  # ana konuşmanın listesi; hazirla() her model çağrısından önce bağlar
+
+
+def hazirla(mesajlar):
+    KONUSMA["mesajlar"] = mesajlar
+    ozet.ozetle_gerekirse(mesajlar, TARIFLER)
+
+
+def korumali_read_file(path):
+    metin = okuma.read_file(path)
+    if KONUSMA["mesajlar"] is None:
+        return metin
+    simdi = ozet.token_tahmini(KONUSMA["mesajlar"], TARIFLER)
+    dosya = len(metin) // ozet.KARAKTER_TOKEN
+    if simdi + dosya <= KORUMA_ESIK * ajan.NUM_CTX:
+        return metin
+    print(f"     (koruma: {path} ~{dosya} token, bağlam ~{simdi}/{ajan.NUM_CTX} → içerik verilmedi)")
+    return (
+        f"OKUNMADI: {path} yaklaşık {dosya} token; bağlam şu an ~{simdi}/{ajan.NUM_CTX} token. Okursan bağlam dolar ve "
+        "konuşmanın başı kaybolur. Bu dosyadan bilgi çıkarmak için alt_gorev kullan: dosyanın tam adını ve ne "
+        "istediğini yaz. Dosyayı değiştirmen gerekiyorsa kullanıcıya bağlamın yetmediğini söyle."
+    )
+
+
+ARACLAR = {**hafiza.ARACLAR, "read_file": korumali_read_file, "alt_gorev": alt_gorev}
 
 # Ana ajanın read_file tarifine yönlendirme notu. qwen3:8b system mesajındaki "alt_gorev ile parçala" kuralını
 # tartmıyor, araç tariflerine bakıyor (Adım 10g: #12'nin ilk turunda alt_gorev system'de 0/5, tarifte 2–3/5).
@@ -111,4 +139,4 @@ def araci_calistir(cagri):
 
 
 if __name__ == "__main__":
-    ajan.sohbet(SYSTEM, TARIFLER, araci_calistir, hazirla=lambda m: ozet.ozetle_gerekirse(m, TARIFLER))
+    ajan.sohbet(SYSTEM, TARIFLER, araci_calistir, hazirla=hazirla)

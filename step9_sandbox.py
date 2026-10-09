@@ -27,7 +27,6 @@ import step3_agent as ajan
 import step4_write as yazma
 import step5_shell as kabuk
 import step8_subtask as alt
-import step8_summary as ozet
 
 # Yollar profile metin olarak gömülmez, -D ile parametre verilir: yolda tırnak vb. olsa profil bozulmaz.
 PROFIL = """
@@ -65,4 +64,4 @@ SYSTEM = alt.SYSTEM + (
 )
 
 if __name__ == "__main__":
-    ajan.sohbet(SYSTEM, alt.TARIFLER, alt.araci_calistir, hazirla=lambda m: ozet.ozetle_gerekirse(m, alt.TARIFLER))
+    ajan.sohbet(SYSTEM, alt.TARIFLER, alt.araci_calistir, hazirla=alt.hazirla)

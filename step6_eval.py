@@ -235,12 +235,12 @@ def ajan_kur(ad, kok):
     """(system, tarifler, araci_calistir, hazirla) — ad: 'step5' veya 'tam'."""
     if ad == "step5":
         return kabuk.SYSTEM, kabuk.TARIFLER, kabuk.araci_calistir, None
-    import step8_memory as hafiza, step8_subtask as alt, step8_summary as ozetleme, step9_sandbox as sb
+    import step8_memory as hafiza, step8_subtask as alt, step9_sandbox as sb
     # sb.SYSTEM içe aktarılırken gerçek AGENT.md ile kuruldu; hafıza kısmı kopyanın AGENT.md'sinden (yok) yeniden yapılır
     ek = sb.SYSTEM[len(hafiza.system_mesaji()):]
     hafiza.HAFIZA = kok / "AGENT.md"
-    return (hafiza.system_mesaji() + ek, alt.TARIFLER, alt.araci_calistir,
-            lambda m: ozetleme.ozetle_gerekirse(m, alt.TARIFLER))
+    alt.KONUSMA["mesajlar"] = None  # önceki çalıştırmanın konuşması korumaya karışmasın
+    return hafiza.system_mesaji() + ek, alt.TARIFLER, alt.araci_calistir, alt.hazirla
 
 
 def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
