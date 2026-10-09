@@ -353,23 +353,33 @@ def main():
     toplam = len(modlar) * len(gorevler) * args.tekrar
     print(f"Ajan: {args.ajan}  Model: {ajan.MODEL} @ {args.host or 'bu bilgisayar'}  görev: {len(gorevler)}  tekrar: {args.tekrar}  think: {modlar}  → {toplam} çalıştırma")
 
+    klasor = PROJE / "eval_sonuclar"
+    klasor.mkdir(exist_ok=True)
+    dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}-{ajan.MODEL.replace(':', '_').replace('/', '_')}.json"
     sonuclar = []
+
+    def yaz(tamamlandi):
+        # Her çalıştırmadan sonra yazılır: dün tam ajan ölçümü 28/42'de iptal edilince sonuçlar kayboldu (Adım 10f).
+        # Önce geçici dosyaya, sonra yer değiştir: yazarken Ctrl-C gelirse eski dosya bozulmasın.
+        gecici = dosya.with_suffix(".tmp")
+        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "sandbox": args.sandbox, "tekrar": args.tekrar,
+                                      "tamamlandi": tamamlandi, "planlanan": toplam, "sonuclar": sonuclar},
+                                     ensure_ascii=False, indent=1), encoding="utf-8")
+        gecici.replace(dosya)
+
     for think in modlar:
         for g in gorevler:
             for i in range(args.tekrar):
                 r = calistir(g, think, ajan_adi=args.ajan)
                 sonuclar.append(r)
+                yaz(tamamlandi=False)
                 print(f"[{len(sonuclar)}/{toplam}] think={think} #{g['no']} {g['ad']} deneme {i + 1}: "
                       f"{'✅' if r['basarili'] else '❌'} {r['sure']} sn  araçlar={r['araclar']}"
                       f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  bağlam={r['baglam']}/{ajan.NUM_CTX}"
                       f"{'  özet=' + str(r['ozet']) if r['ozet'] else ''}"
                       f"{'  alt görev=' + str(r['alt_gorev']) if r['alt_gorev'] else ''}  {r['not']}", flush=True)
 
-    klasor = PROJE / "eval_sonuclar"
-    klasor.mkdir(exist_ok=True)
-    dosya = klasor / f"{datetime.now():%Y%m%d-%H%M%S}-{ajan.MODEL.replace(':', '_').replace('/', '_')}.json"
-    dosya.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "sandbox": args.sandbox, "tekrar": args.tekrar, "sonuclar": sonuclar},
-                                ensure_ascii=False, indent=1), encoding="utf-8")
+    yaz(tamamlandi=True)
     ozet(sonuclar, modlar)
     print(f"\nayrıntı: {dosya.relative_to(PROJE)}")
 
