@@ -79,7 +79,7 @@ def write_file(path, content):
     return f"yazıldı: {path} ({len(content)} karakter)"
 
 
-def edit_file(path, old_text, new_text):
+def edit_file(path, old_text, new_text, replace_all=False):
     yol = yazilabilir_yol(path)
     if not old_text:
         raise ValueError("old_text boş olamaz. Dosyanın tamamını değiştirmek için write_file kullan.")
@@ -90,8 +90,13 @@ def edit_file(path, old_text, new_text):
     adet = eski.count(old_text)
     if adet == 0:
         raise ValueError("old_text dosyada bulunamadı. Önce read_file ile oku, metni boşluklarıyla birebir kopyala.")
-    if adet > 1:
-        raise ValueError(f"old_text dosyada {adet} kez geçiyor; tek yeri seçecek kadar çevresiyle birlikte ver.")
+    # Adım 10i: #14'te model iki HIZ'ı da görüp "tek tek değiştireyim" dedi ama hep old_text="HIZ" gönderdi,
+    # sonunda sadece benzersiz import satırını değiştirip kullanımı bıraktı. replace_all niyeti tek çağrıya çeviriyor.
+    if isinstance(replace_all, str):  # model bazen "true" diye metin gönderiyor
+        replace_all = replace_all.strip().lower() == "true"
+    if adet > 1 and not replace_all:
+        raise ValueError(f"old_text dosyada {adet} kez geçiyor. Hepsini değiştireceksen replace_all=true ver; "
+                         "tek bir yerse o yeri seçecek kadar çevresiyle birlikte ver.")
     yeni = eski.replace(old_text, new_text)
     red = onay_al(path, eski, yeni)
     if red:
@@ -124,7 +129,8 @@ TARIFLER = okuma.TARIFLER + [
             "name": "edit_file",
             "description": (
                 "sandbox/ içindeki bir dosyada old_text'i new_text ile değiştirir. old_text dosyada birebir ve "
-                "tam olarak bir kez geçmeli. Kullanıcı onayı gerekir."
+                "tam olarak bir kez geçmeli; replace_all=true verilirse geçtiği her yer değişir (ör. bir değişkenin "
+                "adını dosyanın tamamında değiştirmek). Kullanıcı onayı gerekir."
             ),
             "parameters": {
                 "type": "object",
@@ -132,6 +138,7 @@ TARIFLER = okuma.TARIFLER + [
                     "path": {"type": "string", "description": "Dosya yolu, ör. 'sandbox/not.txt'"},
                     "old_text": {"type": "string", "description": "Değiştirilecek mevcut metin (birebir)"},
                     "new_text": {"type": "string", "description": "Yerine gelecek metin"},
+                    "replace_all": {"type": "boolean", "description": "true: old_text'in geçtiği her yeri değiştir. Varsayılan false."},
                 },
                 "required": ["path", "old_text", "new_text"],
             },

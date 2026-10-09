@@ -806,3 +806,25 @@ bunu kullanıyor). Alt ajanın `read_file`'ı korumasız. Modelsiz deneme: #12'n
 **Dersler**
 - 8b'de talimatın tutmadığı yerde kod tutuyor: model engeli görünce kendiliğinden alt_gorev'e geçti (3/3).
 - Koruma sadece aşmayı önlüyor; çok dosyalı okumada ilk dosyalar yine ana bağlama giriyor.
+
+### 10i — #14: edit_file'a replace_all
+**Teşhis** (#14, tam ajan, 4 deneme, her çağrının düşünmesi kaydedildi; 4/4 ❌): model oyun.py'deki iki `HIZ`'ı da
+görüyor ("HIZ is used twice: the import statement and the print statement… replace each occurrence one by one")
+ama hep `edit_file(old_text="HIZ")` gönderiyor → "2 kez geçiyor; çevresiyle birlikte ver" hatası. Niyeti benzersiz
+bir metne çeviremiyor: ya aynı çağrıyı tekrarlayıp tur sınırına takılıyor ya da sadece benzersiz import satırını
+değiştirip `HIZ * 2`'yi bırakıyor (önceki ölçümlerdeki hata buydu). Ayrıca 2 denemede düzenleme işi için de
+alt_gorev ile okudu (10g yan etkisi): birinde alt ajanın özeti ikinci kullanımı kaybetti, birinde `sandbox/` öneki
+olmadan dosya bulunamadı.
+
+**Ne yaptık** (`step4_write.py`): `edit_file(..., replace_all=false)`. true ise her geçtiği yer değişir; metin
+olarak "true" da kabul. Birden çok geçince hata mesajı `replace_all=true`'yu öneriyor. Onay akışı aynı (fark
+gösteriliyor). Modelsiz deneme: yok / false → hata, "true" / True → iki HIZ da değişti.
+
+**Eval** (#14, tam ajan ×3): **2/3** (10h: 0/3, 10f: 1/3). Üç denemede de model ilk çağrıda `replace_all: true`
+verdi. Başarısız deneme başka sebepten: ayarlar.py'yi değiştirip menu.py'yi çalıştırdı, AttributeError'ı görünce
+düzeltmek yerine kullanıcıya "siz değiştirin" diye talimat yazıp bitirdi; bağlam 8641/8192.
+
+**Yeni bulgu: önceki turların düşünmesi bağlamda kalıyor.** Başarısız denemede dosyalar küçük olduğu halde bağlam
+her turda ~800–1000 token büyüdü. Ölçüm: aynı konuşma, assistant mesajında 2100 karakterlik düşünmeyle 1798, onsuz
+1014 prompt token (+784). Ajan döngüsü `thinking`'i mesajla birlikte saklıyor ve Ollama onu her çağrıda geri
+gönderiyor; bir isteğin bütün turlarının düşünmesi birikiyor. 10f'deki "farkın kalanı düşünme" bunun sonucu.
