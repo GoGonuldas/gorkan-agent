@@ -755,3 +755,33 @@ Dünkü step5 9/12 uykudan etkilendi (7 çalıştırmada 10 yedek), yarım kalan
 - Düşünmesize yedek takılmayı önlüyor ama düşünmesiz cevap bazen sadece niyet bildirip duruyor → görev yarım kalıyor.
 - #14 kalıcı zayıflık: bir dosyada import'u düzeltip kullanım satırını unutuyor.
 - Uzun ölçümde altyapıyı da kaydetmek gerekiyor: süre ve yedek sayısı uykuyu ele verdi, ama sadece sonradan bakınca.
+
+### 10g — alt_gorev'i neden kullanmıyor? (kısmi)
+**Soru:** 10f'de tam ajan #12'de bağlamı aştı (8995/8192) ama tam bu iş için olan `alt_gorev`'i hiç kullanmadı.
+
+**Ölçüm: sabit maliyet** (gerçek token, "merhaba" ile `prompt_eval_count` farkı): step5 system + tarifler 899, tam 1493
+(+594: system +189, `hatirla` + `alt_gorev` tarifleri +405). Gözlenen fark 1000–1800; kalanı düşünme. Think kapalı #12
+tam ajanda bağlam 7028 (açıkta 8184–8995). Sistemi küçültmek #12'yi kurtarmazdı (8995 − 594 > 8192).
+
+**İlk tur testi** (#12 isteği, tam ajan, think açık, sadece ilk model çağrısı, 5'er kez):
+| | alt_gorev seçti | alt görev metni doğru |
+|---|---|---|
+| mevcut (kural system'de) | 0/5 | — |
+| system'de daha somut kural | 0/5 | — |
+| not `read_file` tarifinde | 3/5 | 1/3 (10b kalıbı kopyalandı: `<dosya>` kaldı, birinde dosya adı yok) |
+| + `gorev` tarifinde kalıp yerine düz tarif | 2/5 | 2/2 |
+Think kapalıyken de 0/3 (eval). Düşünmeler system kuralından hiç söz etmiyor, sürekli "tools section"a bakıyor.
+
+**Değişiklik** (`step8_subtask.py`): ana ajanın `read_file` tarifine not ("birden çok dosyayı sadece okuyacaksan her
+dosya için alt_gorev; değiştireceksen read_file ile kendin oku") — kopya sözlük, alt ajanınki değişmedi. `gorev`
+tarifindeki 10b kalıbı kaldırıldı.
+
+**Eval** (tam ajan, #11–14 ×3): **10/12** (10f: 9/12). #11 3/3, #12 2/3, #13 3/3, #14 2/3. #12'de ilk turda alt_gorev
+**0/3**; bir denemede 3 dosyayı okuduktan sonra alt_gorev'e geçti (bağlam zaten 8533), bir denemede dosyaları iki kez
+okudu (9254) ve başarısız. #14'te alt_gorev hiç çağrılmadı (değiştirme ayrımı tuttu). Yedek 4 kez, ort. 131 sn
+(10f: 1 kez, 92 sn) — sebebi bilinmiyor.
+
+**Dersler**
+- 8b'de yönlendirme system mesajında işe yaramıyor, araç tarifinde biraz yarıyor (~%40), güvenilir değil.
+- Araç tarifindeki kalıp ya da örnek kopyalanıyor (10b'deki endişe bu sefer görüldü): düz tarif daha güvenli.
+- Sıradaki: kod düzeyinde koruma — dosya bağlamı aşacaksa içerik yerine "alt_gorev ile oku" notu dönsün.

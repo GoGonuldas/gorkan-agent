@@ -59,7 +59,23 @@ def alt_araci_calistir(cagri):
 
 ARACLAR = {**hafiza.ARACLAR, "alt_gorev": alt_gorev}
 
-TARIFLER = hafiza.TARIFLER + [
+# Ana ajanın read_file tarifine yönlendirme notu. qwen3:8b system mesajındaki "alt_gorev ile parçala" kuralını
+# tartmıyor, araç tariflerine bakıyor (Adım 10g: #12'nin ilk turunda alt_gorev system'de 0/5, tarifte 2–3/5).
+# Kopya: aynı sözlük alt ajanın (okuma.TARIFLER) read_file'ı, o değişmemeli.
+READ_NOTU = (
+    " Birden çok dosyayı sadece okuyup bilgi çıkaracaksan read_file kullanma; her dosya için ayrı bir alt_gorev çağır "
+    "(hepsi aynı turda verilebilir), böylece bağlam dolmaz. Dosyayı değiştireceksen read_file ile kendin oku: "
+    "edit_file için tam metni görmen gerekir."
+)
+
+
+def _read_notlu(t):
+    if t["function"]["name"] != "read_file":
+        return t
+    return {**t, "function": {**t["function"], "description": t["function"]["description"] + READ_NOTU}}
+
+
+TARIFLER = [_read_notlu(t) for t in hafiza.TARIFLER] + [
     {
         "type": "function",
         "function": {
@@ -76,9 +92,10 @@ TARIFLER = hafiza.TARIFLER + [
                     "gorev": {
                         "type": "string",
                         "description": (
-                            "Kendi başına anlaşılır görev; hangi dosya ve tam olarak ne istendiği yazılmalı. "
-                            "Kalıp: '<dosya> dosyasını oku; <kullanıcının o dosya hakkında istediği bilgi>'. "
-                            "Köşeli parantezleri kullanıcının isteğine göre doldur."
+                            # 10b'deki '<dosya> dosyasını oku; …' kalıbı birebir kopyalandı (Adım 10g: 5 denemenin
+                            # 2'sinde '<dosya>' kaldı, birinde dosya adı hiç yoktu); düz tarifle 2/2 doğru.
+                            "Kendi başına anlaşılır görev. Okunacak dosyanın tam adını ve kullanıcının o dosya "
+                            "hakkında tam olarak ne istediğini yaz; alt ajan başka hiçbir şey bilmiyor."
                         ),
                     },
                 },
