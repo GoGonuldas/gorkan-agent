@@ -722,18 +722,36 @@ Kontrol artık önbelleği siliyor ve `python -B` ile çalıştırıyor.
 - Kontrolün kendisi de hata yapabilir (önbellek); her kontrolü önce elle doğru/yanlış çözümle denemek bunu yakaladı.
 - #12'deki bağlam açıklaması bir tahmin; doğrulamak için eval'in token sayacını kaydetmesi gerekiyor.
 
-### Sıradaki iş (2026-10-08 akşamı yarıda kaldı)
-**Yapıldı, commit edilmedi:** `step6_eval.py`'ye `--ajan step5|tam` (tam = Adım 9 ajanı: hafıza + özetleme + alt görev +
-sandbox) ve her çalıştırmada en yüksek bağlam (gerçek token), özetleme ve alt görev sayısı kaydı.
+### 10f — Yavaşlığın sebebi (Mac uykusu) ve temiz ölçüm: tam ajan vs step5
+**Sorun:** 2026-10-08 akşamı birçok çalıştırma 1000–1800 sn sürdü (10e'de 50–150 sn). `pmset -g log`: ekran 20:00'de
+kapandı, 20:02'de Mac boşta uykuya girdi ve 23:30'a kadar uyumadı; eval sadece 15–20 dk'da bir gelen 2–3 dk'lık
+"DarkWake"lerde ilerledi (model ısıtınca "Dark Wake Thermal Emergency" ile geri uyudu). Ollama logundaki 16 dk'lık
+boşluklar uyanış anlarıyla birebir aynı. 10 "düşünmesize yedek"in hepsi de uykudan: `time.time()` uykuda ilerlediği için
+uyanışta 60 sn aşılmış sayılıyordu (yavaş çalıştırmaların hepsinde yedek ≥1, normallerin hepsinde 0).
 
-**Yarım ölçümler** (qwen3:8b, think açık):
-- step5 ajanı, #11–14 ×3: **9/12** (`eval_sonuclar/20261008-223801-qwen3_8b.json`). #12'nin başarılı denemelerinde
-  bağlam 6900 ve 7238/8192 (sınıra çok yakın); başarısız deneme bu sefer hiç araç çağırmadan cevap verdi. #14 1/3,
-  yine `oyun.py`'deki `HIZ * 2` unutuldu.
-- tam ajan, 14 görev ×3: 28/42'de durduruldu, o ana kadar 28/28 (#11–14'e sıra gelmedi). Sonuç dosyası yazılmadı.
-- Birçok çalıştırma 1000–1800 sn sürdü (aynı gün 10e'de 50–150 sn); sebebi bilinmiyor.
+**Düzeltmeler**
+- `step6_eval.py` macOS'ta `caffeinate -i -w <pid>` başlatıyor (eval bitince kendisi kapanır; kapak açık, şarjda olmalı).
+- `step3_agent.py`: düşünme sınırı `time.monotonic()` ile (macOS'ta `mach_absolute_time`, uykuda ilerlemiyor).
+- Eval sonucu her çalıştırmadan sonra yazıyor (geçici dosya + yer değiştirme), `tamamlandi`/`planlanan` alanlarıyla.
+  SIGTERM denemesinde 2 çalıştırmadan 1'i dosyada kaldı.
 
-**Yapılacaklar:**
-1. Yavaşlığın sebebini bul (`ollama ps`, tek görevin süresi).
-2. Eval her çalıştırmanın sonucunu hemen dosyaya yazsın (iptal edilince kaybolmasın).
-3. `.venv/bin/python step6_eval.py --ajan tam --think acik --tekrar 3` → step5 ile karşılaştır, "10f" olarak yaz.
+Dünkü step5 9/12 uykudan etkilendi (7 çalıştırmada 10 yedek), yarım kalan tam ajan 28/28 de aynı gece aynı koşulda alındı; yerine aşağıdaki temiz ölçüm geçerli.
+
+**Ölçüm** (qwen3:8b, think açık, sandbox, #11–14 ×3, uyku yok):
+| # | tam ajan | step5 | not |
+|---|---|---|---|
+| 11 bozuk düzelt | 2/3 | 2/3 | tam: düşünme 60 sn'yi aştı → düşünmesiz cevap sadece plan yazdı ("önce test edelim…"), araç çağırmadı, ajan bitti. step5: argümanları yanlış sırayla verdi, üç test de hata verdi ama cevapta **testlerin geçtiğini uydurdu** |
+| 12 3 dosya araçları | 3/3 | 3/3 | bağlam tam 8184–8995, step5 6949–7167 / 8192 |
+| 13 yaz+2 durum | 3/3 | 3/3 | bağlam tam 2957–3493, step5 2115–2800 |
+| 14 2 dosyada ad | 1/3 | 2/3 | 3 başarısızlığın üçünde de `oyun.py`'de `HIZ` kaldı (tamın birinde `menu.py`'de de: erken bıraktı) |
+| toplam | **9/12** (ort. 92 sn) | **10/12** (ort. 104 sn) | yedek: ikisinde de 1 kez (gerçek, uykusuz) |
+
+**Dersler**
+- 12'şer çalıştırmada 9 vs 10 fark değil; tam ajanın eklentileri (hafıza, özetleme, alt görev) bu görevlerde ne kazandırdı
+  ne kaybettirdi. Alt görev hiç kullanılmadı, özetleme hiç tetiklenmedi.
+- Tam ajan aynı görevde ~800–1800 token daha fazla bağlam kullanıyor (muhtemelen uzun system mesajı: hafıza + alt görev
+  tarifi; ölçmedim). #12'de bu, 8192'yi aşmasına yetti (8995, 8504). Özetleme yardım edemiyor: taşan her şey son isteğe ait
+  ("özetlenecek eski mesaj yok"). Geçmesi şans; Ollama fazlayı sessizce kesiyor.
+- Düşünmesize yedek takılmayı önlüyor ama düşünmesiz cevap bazen sadece niyet bildirip duruyor → görev yarım kalıyor.
+- #14 kalıcı zayıflık: bir dosyada import'u düzeltip kullanım satırını unutuyor.
+- Uzun ölçümde altyapıyı da kaydetmek gerekiyor: süre ve yedek sayısı uykuyu ele verdi, ama sadece sonradan bakınca.
