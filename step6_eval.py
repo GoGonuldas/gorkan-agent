@@ -17,6 +17,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -339,6 +340,11 @@ def main():
     if args.sandbox:
         import step9_sandbox  # noqa: F401  (yüklenince step5'in run_command'ını sandbox'a bağlar)
     ajan.DUSUNME_SINIRI = args.dusunme_siniri
+    if sys.platform == "darwin":
+        # Adım 10f: ekran kapanınca Mac uyudu, eval sadece kısa arka plan uyanışlarında ilerledi (çalıştırma 50 sn
+        # yerine 1000+ sn). caffeinate -i boşta uykuyu engeller, -w bu süreç bitince kendisi de kapanır.
+        # Kapak kapanırsa yine uyur: ölçümde kapak açık, şarja takılı kalmalı.
+        subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
 
     modlar = {"kapali": [False], "acik": [True], "ikisi": [False, True]}[args.think]
     if not ajan.ayarla(args.model, args.host, think=True):  # model düşünemiyorsa sadece kapalı ölç

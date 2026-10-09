@@ -76,7 +76,9 @@ def modeli_cagir(mesajlar, tarifler, think):
         kaydet(mesajlar, r)
         return r.message
 
-    t0 = time.time()
+    # monotonic: macOS'ta uykuda ilerlemiyor. time.time() ile Mac düşünme sırasında uyuyunca uyanışta süre aşılmış
+    # sayılıyor, yedek boşuna tetikleniyordu (Adım 10f: 10 yedeğin hepsi uykudan).
+    t0 = time.monotonic()
     icerik, dusunce, araclar = "", "", []
     akis = ISTEMCI.chat(model=MODEL, messages=mesajlar, tools=tarifler, think=True, stream=True, options=secenek)
     try:
@@ -87,7 +89,7 @@ def modeli_cagir(mesajlar, tarifler, think):
             araclar += m.tool_calls or []
             if parca.done:
                 kaydet(mesajlar, parca)
-            if not icerik and not araclar and time.time() - t0 > DUSUNME_SINIRI:
+            if not icerik and not araclar and time.monotonic() - t0 > DUSUNME_SINIRI:
                 akis.close()
                 print(f"  (düşünme {DUSUNME_SINIRI} sn'yi aştı → düşünmeden yeniden soruluyor)")
                 return modeli_cagir(mesajlar, tarifler, think=False)
