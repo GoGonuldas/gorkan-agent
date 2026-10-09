@@ -45,6 +45,9 @@ TEKRAR_NOTU = (
     "\n\nNOT: Bu aracı aynı argümanlarla daha önce çağırdın ve sonuç aynıydı. Aynısını tekrar deneme: farklı bir yol "
     "dene (ör. dosyayı read_file ile okuyup write_file ile baştan yaz) ya da yapamadığını kullanıcıya söyle."
 )
+# Adım 10j: modelin düşünmesi assistant mesajında kalırsa Ollama onu sonraki her çağrıda geri gönderiyor (2100
+# karakter → +784 prompt token); bir isteğin bütün turlarının düşünmesi birikiyordu. False: konuşmaya düşünmesiz eklenir.
+DUSUNCE_SAKLA = False
 THINK = True  # sohbet() komut satırından ayarlar; alt görevler (Adım 8c) aynı ayarla çalışsın diye burada
 
 
@@ -120,6 +123,8 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
         if hazirla:
             hazirla(mesajlar)
         mesaj = modeli_cagir(mesajlar, tarifler, think)
+        if not DUSUNCE_SAKLA and mesaj.thinking:
+            mesaj = ollama.Message(role=mesaj.role, content=mesaj.content, tool_calls=mesaj.tool_calls)
         mesajlar.append(mesaj)
 
         if not mesaj.tool_calls:  # araç istemedi → iş bitti

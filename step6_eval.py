@@ -333,6 +333,7 @@ def main():
     ap.add_argument("--host", help="Ollama sunucusu, ör. http://gorkans-mac-mini.local:11434")
     ap.add_argument("--dusunme-siniri", type=float, default=ajan.DUSUNME_SINIRI)
     ap.add_argument("--sandbox", action="store_true", help="komutları Adım 9'un sandbox-exec'i içinde çalıştır")
+    ap.add_argument("--dusunce-sakla", action="store_true", help="önceki turların düşünmesi konuşmada kalsın (10j öncesi)")
     ap.add_argument("--ajan", choices=["step5", "tam"], default="step5", help="tam: Adım 9 ajanı (sandbox dahil)")
     args = ap.parse_args()
     if args.ajan == "tam":
@@ -340,6 +341,7 @@ def main():
     if args.sandbox:
         import step9_sandbox  # noqa: F401  (yüklenince step5'in run_command'ını sandbox'a bağlar)
     ajan.DUSUNME_SINIRI = args.dusunme_siniri
+    ajan.DUSUNCE_SAKLA = args.dusunce_sakla
     if sys.platform == "darwin":
         # Adım 10f: ekran kapanınca Mac uyudu, eval sadece kısa arka plan uyanışlarında ilerledi (çalıştırma 50 sn
         # yerine 1000+ sn). caffeinate -i boşta uykuyu engeller, -w bu süreç bitince kendisi de kapanır.
@@ -362,7 +364,7 @@ def main():
         # Her çalıştırmadan sonra yazılır: dün tam ajan ölçümü 28/42'de iptal edilince sonuçlar kayboldu (Adım 10f).
         # Önce geçici dosyaya, sonra yer değiştir: yazarken Ctrl-C gelirse eski dosya bozulmasın.
         gecici = dosya.with_suffix(".tmp")
-        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "sandbox": args.sandbox, "tekrar": args.tekrar,
+        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "dusunce_sakla": ajan.DUSUNCE_SAKLA, "sandbox": args.sandbox, "tekrar": args.tekrar,
                                       "tamamlandi": tamamlandi, "planlanan": toplam, "sonuclar": sonuclar},
                                      ensure_ascii=False, indent=1), encoding="utf-8")
         gecici.replace(dosya)

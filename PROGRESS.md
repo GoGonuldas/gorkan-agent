@@ -828,3 +828,27 @@ düzeltmek yerine kullanıcıya "siz değiştirin" diye talimat yazıp bitirdi; 
 her turda ~800–1000 token büyüdü. Ölçüm: aynı konuşma, assistant mesajında 2100 karakterlik düşünmeyle 1798, onsuz
 1014 prompt token (+784). Ajan döngüsü `thinking`'i mesajla birlikte saklıyor ve Ollama onu her çağrıda geri
 gönderiyor; bir isteğin bütün turlarının düşünmesi birikiyor. 10f'deki "farkın kalanı düşünme" bunun sonucu.
+
+### 10j — Önceki turların düşünmesi konuşmaya eklenmesin
+**Ne yaptık** (`step3_agent.py`): `DUSUNCE_SAKLA = False` — `ajan_turu` modelin cevabını konuşmaya düşünmesiz ekliyor
+(model o çağrıda yine düşünüyor; sadece sonraki çağrılara taşınmıyor). Eval'de `--dusunce-sakla` ile eski davranış,
+sonuç dosyasında `dusunce_sakla` alanı.
+
+**Ölçüm** (tam ajan, think açık, #11–14 ×3, aynı kod, arka arkaya):
+| | at (yeni) | sakla (eski) |
+|---|---|---|
+| başarı | 11/12 | 11/12 |
+| ort. en yüksek bağlam #11 / #12 / #13 / #14 | 3717 / 4641 / 2400 / 3229 | 4191 / 5259 / 2945 / 4467 |
+| ort. en yüksek bağlam (hepsi) | **3497** | **4216** (−%17) |
+Başarısızlıklar: at #14 — ayarlar.py'yi değiştirdikten sonra unutup aynı düzenlemeyi 3 kez daha denedi (planı
+kaybetmiş olabilir, tek örnek); sakla #11 — testi komut çalıştıramayan alt_gorev'e verdi, beklenen çıktıları yazıp
+bitirdi. Süreler karşılaştırılamaz (aşağıda).
+
+**Karar:** düşünme atılıyor (varsayılan). Başarı aynı, bağlam ~700 token (%17) küçük. Plan kaybı riski için
+çok adımlı görevlerde gözlemeye devam.
+
+**Başarısızlık (ölçüm altyapısı):** iki eval'i `;` ile arka arkaya çalıştırdım. İlkinin caffeinate'i bitince
+(20:16:59) sistem 5 sn içinde boşta uykuya girdi (20:17:04); ikincinin caffeinate'i aynı saniyede başlamıştı ama
+uykuya girişi durdurmadı. "sakla" ölçümünün ilk ~4 çalıştırması 21:13'e kadar DarkWake'lerde ilerledi (1883 sn,
+1000 sn). Başarıyı etkilemiş görünmüyor (monotonic saat sayesinde sahte yedek yok), süreleri geçersiz.
+Ders: arka arkaya ölçümleri tek bir `caffeinate -i sh -c '…; …'` altında çalıştır.
