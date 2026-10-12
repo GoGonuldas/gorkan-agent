@@ -740,7 +740,7 @@ Dünkü step5 9/12 uykudan etkilendi (7 çalıştırmada 10 yedek), yarım kalan
 **Ölçüm** (qwen3:8b, think açık, sandbox, #11–14 ×3, uyku yok):
 | # | tam ajan | step5 | not |
 |---|---|---|---|
-| 11 bozuk düzelt | 2/3 | 2/3 | tam: düşünme 60 sn'yi aştı → düşünmesiz cevap sadece plan yazdı ("önce test edelim…"), araç çağırmadı, ajan bitti. step5: argümanları yanlış sırayla verdi, üç test de hata verdi ama cevapta **testlerin geçtiğini uydurdu** |
+| 11 bozuk düzelt | 2/3 | 2/3 | tam: düşünme 60 sn'yi aştı → düşünmesiz cevap sadece plan yazdı ("önce test edelim…"), araç çağırmadı, ajan bitti. step5: argümanları yanlış sırayla okuyacak şekilde düzeltti, eval'in üç testi de hata verdi. Cevaptaki "geçen testler" uydurma değil (10k'da düzeltildi): hesap.py'nin sonuna kendi sabit `print("Toplama: 2 + 3 =", 2 + 3)` satırlarını ekleyip onları çalıştırdı, gerçek çıktıyı aktardı → hesaplayıcıyı hiç kullanmayan **sahte test** |
 | 12 3 dosya araçları | 3/3 | 3/3 | bağlam tam 8184–8995, step5 6949–7167 / 8192 |
 | 13 yaz+2 durum | 3/3 | 3/3 | bağlam tam 2957–3493, step5 2115–2800 |
 | 14 2 dosyada ad | 1/3 | 2/3 | 3 başarısızlığın üçünde de `oyun.py`'de `HIZ` kaldı (tamın birinde `menu.py`'de de: erken bıraktı) |

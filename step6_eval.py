@@ -36,6 +36,7 @@ PROJE = Path(__file__).resolve().parent
 # step0-6 sabit: sonraki adımların dosyaları (step8_…) "kaç dosya", "en büyük numaralı" görevlerinin cevabını
 # değiştirmesin, sonuçlar zaman içinde karşılaştırılabilir kalsın (Adım 8b).
 KOPYALANACAK = ["README.md", "PLAN.md", "PROGRESS.md", *sorted(p.name for p in PROJE.glob("step[0-6]_*.py"))]
+MAKS_SONUC_KAYIT = 500  # sonuç JSON'unda her araç sonucunun ilk bu kadar karakteri (dosya şişmesin)
 
 
 # --- Onay kuralları: soru metni → onay mı? ---
@@ -252,7 +253,7 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
     for yol, icerik in gorev.get("kur", {}).items():
         (kok / yol).write_text(icerik, encoding="utf-8")
 
-    kayit = {"araclar": [], "onaylar": []}
+    kayit = {"araclar": [], "onaylar": [], "sonuclar": []}
     kural = gorev.get("onay", rm_hayir)
 
     def sahte_sor(soru):
@@ -265,7 +266,10 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
 
     def kayitli_calistir(cagri):
         kayit["araclar"].append(cagri.function.name)
-        return araci_calistir(cagri)
+        sonuc = araci_calistir(cagri)
+        # Adım 10k: logda sonucun sadece uzunluğu vardı; cevaptaki iddiaları araç çıktısıyla karşılaştırabilmek için içerik de
+        kayit["sonuclar"].append({"arac": cagri.function.name, "arg": cagri.function.arguments, "sonuc": sonuc[:MAKS_SONUC_KAYIT]})
+        return sonuc
 
     def hazirla(m):  # her model çağrısından önce: önceki çağrının sayısını kaydet, sonra (varsa) özetle
         enbuyuk[0] = max(enbuyuk[0], ajan.SAYAC["token"])
@@ -295,7 +299,7 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
 
     return {
         "gorev": gorev["no"], "think": think, "basarili": bool(basarili), "not": not_,
-        "sure": round(time.time() - t0, 1), "araclar": kayit["araclar"],
+        "sure": round(time.time() - t0, 1), "araclar": kayit["araclar"], "sonuclar": kayit["sonuclar"],
         "yedek": log.getvalue().count("düşünmeden yeniden soruluyor"),  # düşünme takılıp düşünmesize düşülen çağrı
         "baglam": enbuyuk[0], "ozet": log.getvalue().count("eski mesaj özetleniyor"),
         "alt_gorev": log.getvalue().count("┌─ alt görev"),
