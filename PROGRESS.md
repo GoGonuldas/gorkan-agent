@@ -904,3 +904,28 @@ için örnek sayısı büyük olmalı.
 
 **Karar:** eksik test ve uydurma aynı kökten — model testlerin bir kısmını çalıştırmıyor, kalanların sonucunu
 tahminle yazıyor. Sıradaki (10l-b): bunu ajan tarafında düzeltmek, bu iki sütunla ölçmek.
+
+### 10l-b — Sistem mesajına "testleri kendin çalıştır, çalıştırmadığının sonucunu yazma" kuralı
+**Ne yaptık** (`step5_shell.py` SYSTEM; tam ajan da devralıyor): "Test etmen istenirse her durumu ayrı bir
+run_command ile kendin çalıştır; komutları kullanıcıya bırakma. Cevapta sadece gerçekten çalıştırdığın komutların
+çıktısını yaz; çalıştırmadığın bir şeyin sonucunu yazma veya tahmin etme."
+
+**Ölçüm** (Mac mini, think açık, #11 + #13 ×5, tam + step5; işaretlere elle bakıldı, 2 yanlış alarm çıkarıldı:
+tek parça `1 2 4 → 2.33`, etiket "sayı işlem sayı"):
+| #11 | önce (10k + 10l, 12) | sonra (10) |
+|---|---|---|
+| başarı (eval) | 11/12 | 10/10 |
+| eksik test | 10/12 | 7/10 (4 bıraktı/çalıştırmadı, 3 tur sınırı) |
+| uydurma | 3/12 | 2/10 |
+#13: başarı 10/10, eksik test 0, uydurma 1/10 (önce 0/12) — step5 `10 20`'yi çalıştırmadan "→ 15.00 (doğru)" yazdı.
+
+Kurala rağmen: tam #11-1 iki komutu da hata verdi, cevapta üç sonuç uydurdu; tam #11-2/-3 "diğerlerini de test
+edelim" / "ister misin?" deyip bitirdi.
+
+**Başarı sütunu şişik:** 10 tur sınırında "durduruldu" ile biten çalıştırmalar da ✅ — k_bozuk_hesap dosyanın son
+haline bakıyor, o noktada dosya düzelmiş oluyor (bu iki ölçümde 3, öncekilerde 2 kez).
+
+**Karar:** kural kalıyor (zararsız, etkisi küçük ve gürültü içinde). Model kuralı okuyor ama uymuyor → sıradaki:
+döngü düzeyinde kontrol (TEKRAR_UYARISI gibi): model bitirmek isteyince cevabındaki çıktı iddiaları gerçek komut
+çıktılarıyla karşılaştırılsın, kanıtsız iddia varsa "ya çalıştır ya çıkar" notuyla devam ettirilsin. Risk: ajan
+eval'in uydurma kontrolünü kullanırsa o sütun kendini doğrular → etkiyi bağımsız eksik test sütunuyla değerlendir.
