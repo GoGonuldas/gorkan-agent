@@ -873,4 +873,34 @@ step5 deneme 1 hiç komut çalıştırmadı, "test edelim" deyip komutları list
 birer test çalıştırıp kalanları kullanıcıya bıraktı. Eval bunları başarılı sayıyor çünkü `k_bozuk_hesap` sadece
 dosyanın son halini test ediyor, modelin test edip etmediğine bakmıyor.
 
-**Karar:** uydurma hattı kapandı. Sıradaki: #11/#13'te "istenen testler gerçekten çalıştırıldı mı" ölçülsün.
+**Karar:** ~~uydurma hattı kapandı~~ — erkendi: 10l'deki ikinci ölçümde #11'de 6 denemenin 2–3'ünde uydurma çıktı. 12 örnek yetmedi. Sıradaki: #11/#13'te "istenen testler gerçekten çalıştırıldı mı" ölçülsün.
+
+### 10l — Eksik test ölçümü; uydurma geri döndü
+**Ne yaptık** (`step6_eval.py`):
+- `testler=` görev alanı ve `eksik_test` sütunu: sonuçlardaki run_command'lardan hedef betiği çalıştıranlar ajanın
+  `parcala`'sıyla ayrıştırılıyor. #11: `+`, `/`, `*` operatörlerinin her biri en az bir kez (sonuç hatalı olsa da
+  deneme sayılır). #13: en az bir sayılı çalıştırma — sayısız durum zorunlu değil, görevdeki "iki durumu da" iki
+  örnek (1 2 4, 10 20) olarak da okunabiliyor. Başarıyı değiştirmez.
+- Uydurma kontrolünde açık kapatıldı: çalıştırılmamış bir `python …` komutu, aynı satırda sonuç gösteriliyorsa
+  (`→`, "çıktı") iddia sayılıyor. Bugünkü iki JSON'un `dogrulanmayan` alanı bu kuralla yeniden hesaplandı.
+
+**Ölçüm** (Mac mini, think açık, #11 + #13 ×3, tam + step5):
+| | tam | step5 |
+|---|---|---|
+| başarı #11 / #13 | 2/3 / 3/3 | 3/3 / 3/3 |
+| eksik test #11 | 3/3 | 3/3 |
+| uydurma #11 | 2/3 | 1/3 |
+#13'te ne eksik test ne uydurma. 10k'nın verisiyle birlikte #11'de eksik test 12 denemenin 10'unda.
+
+Uydurma örnekleri (#11):
+- step5 deneme 2: sadece toplamayı çalıştırdı (5.0); cevapta çıkarma 2.0, çarpma 20.0, bölme 5.0, sıfıra bölme hatası
+  "✅ Çıktı" diye listelendi. (5.0 gerçek bir çıktıyla aynı olduğu için kontrol onu göremez.)
+- tam deneme 3: sadece toplama; cevapta "`python sandbox/hesap.py 2 3 *` → 6.0" gibi dört uydurma sonuç.
+- tam deneme 2: çarpmayı çalıştırmadan "beklenen formatta (örneğin `4 5 *` → `4.0 * 5.0 = 20.0`)".
+Başarı sütunu bunların hepsini ✅ sayıyor: k_bozuk_hesap dosyanın son halini kendisi test ediyor.
+
+**Ders:** 10k'da 12 çalıştırmada uydurma 0'dı, burada 6'da 3. Tek ölçümle "yok" kararı verilmez; nadir davranışlar
+için örnek sayısı büyük olmalı.
+
+**Karar:** eksik test ve uydurma aynı kökten — model testlerin bir kısmını çalıştırmıyor, kalanların sonucunu
+tahminle yazıyor. Sıradaki (10l-b): bunu ajan tarafında düzeltmek, bu iki sütunla ölçmek.

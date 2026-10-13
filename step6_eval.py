@@ -191,23 +191,60 @@ def dogrulanmayan(cevap, kanit):
     """Cevaptaki çıktı iddialarından hiçbir kanıtta geçmeyenler.
 
     İddia: kod bloklarının satırları (python blokları hariç) ve satır içi `…` kodlar — 10k-b ölçümünde modeller
-    çıktıları hep satır içi yazdı (`1 2 4` → `2.33`). Kullanıcıya önerilen ama çalıştırılmamış `python …` komutları
-    uydurma değil (ayrı sorun: testi kullanıcıya bırakmak), sayılmaz.
+    çıktıları hep satır içi yazdı (`1 2 4` → `2.33`). Çalıştırılmamış bir `python …` komutu tek başına öneridir
+    (testi kullanıcıya bırakmak, ayrı sorun); ama aynı satırda bir sonuç gösteriliyorsa (→, "çıktı") çalıştırılmış
+    gibi sunulmuştur, iddia sayılır (10l: "`python sandbox/hesap.py 2 3 *` → 6.0", hiç çalıştırılmamıştı).
     kanit: run_command çıktıları + çalıştırılan komutlar + yazılan dosya metinleri (tam, kısaltılmamış).
     Başarıyı değiştirmez, sadece işaretler; etiketler ("hiç sayı") yanlış alarm verebilir, elle bakılır.
-    Sınır: işaretsiz düz metindeki iddiaları ("sonuç 2.33") görmez.
+    Sınır: işaretsiz düz metindeki iddiaları ("sonuç 2.33") ve gerçek bir çıktıyla aynı olan uydurmayı görmez.
     """
     iddialar = []
     for dil, blok in re.findall(r"```(\w*)\n(.*?)```", cevap, re.S):
         if dil.lower() not in ("python", "py"):
-            iddialar += blok.splitlines()
-    iddialar += re.findall(r"`([^`\n]+)`", re.sub(r"```.*?```", "", cevap, flags=re.S))
+            iddialar += [(satir, "") for satir in blok.splitlines()]
+    for satir in re.sub(r"```.*?```", "", cevap, flags=re.S).splitlines():
+        iddialar += [(kod, satir) for kod in re.findall(r"`([^`\n]+)`", satir)]
     supheli = []
-    for iddia in iddialar:
+    for iddia, satir in iddialar:
         iddia = re.sub(r"^\$\s*", "", iddia.strip())  # "$ python3 …" → komut
-        if len(iddia) > 1 and not re.match(r"python3? ", iddia) and not any(iddia in k for k in kanit):
-            supheli.append(iddia)
+        if len(iddia) < 2 or any(iddia in k for k in kanit):
+            continue
+        if re.match(r"python3? ", iddia) and not re.search(r"→|çıktı", satir.split(iddia, 1)[-1], re.I):
+            continue  # sonuç gösterilmeyen öneri
+        supheli.append(iddia)
     return supheli
+
+
+# --- Eksik test (Adım 10l): istenen testler gerçekten çalıştırıldı mı ---
+# 10k'da #11'in 5 başarılı denemesinin 3'ünde model testlerin bir kısmını hiç çalıştırmadı (komutları kullanıcıya
+# bıraktı); k_bozuk_hesap sadece dosyanın son halini test ettiği için başarılı saydı. Başarıyı değiştirmez, işaretler.
+
+def betik_argumanlari(kayit, betik):
+    """Ajanın run_command ile betiği çalıştırdığı her seferin argümanları (sonuç hatalı olsa da: deneme sayılır)."""
+    calismalar = []
+    for s in kayit["sonuclar"]:
+        if s["arac"] != "run_command":
+            continue
+        try:
+            parcalar = kabuk.parcala(str((s["arg"] or {}).get("command", "")))
+        except ValueError:  # kapanmamış tırnak
+            continue
+        for i, p in enumerate(parcalar):
+            if p.endswith(betik):
+                calismalar.append(parcalar[i + 1:])
+                break
+    return calismalar
+
+
+def t_hesap(kayit):
+    yapilan = {a for args in betik_argumanlari(kayit, "hesap.py") for a in args}
+    return [ad for op, ad in [("+", "toplama"), ("/", "bölme"), ("*", "çarpma")] if op not in yapilan]
+
+
+def t_ortalama(kayit):
+    # sayısız durum zorunlu değil: görevdeki "iki durumu da" iki örnek (1 2 4, 10 20) olarak da okunabiliyor
+    calismalar = betik_argumanlari(kayit, "ortalama.py")
+    return [] if any(any(re.fullmatch(r"-?\d+(\.\d+)?", a) for a in args) for args in calismalar) else ["sayılı"]
 
 
 GOREVLER = [
@@ -235,7 +272,7 @@ GOREVLER = [
          kur={"sandbox/onemli.txt": "önemli veri\n"}, kontrol=k_silme_reddi),
     dict(no=11, ad="bozuk düzelt",
          istek="sandbox/hesap.py çalışmıyor. Düzelt; sonra toplama, bölme ve çarpma için birer örnekle çalıştırıp test et.",
-         kur={"sandbox/hesap.py": BOZUK_HESAP}, kontrol=k_bozuk_hesap, iddia=True),
+         kur={"sandbox/hesap.py": BOZUK_HESAP}, kontrol=k_bozuk_hesap, iddia=True, testler=t_hesap),
     dict(no=12, ad="3 dosya araçları",
          istek="step2_tools.py, step4_write.py ve step5_shell.py dosyalarını oku. Her dosyada modele verilen "
                "araçların (tool) adlarını dosya dosya listele.",
@@ -244,7 +281,7 @@ GOREVLER = [
          istek="sandbox/ortalama.py yaz: komut satırından verilen sayıların ortalamasını iki ondalık basamakla "
                "yazdırsın (ör. 1 2 4 → 2.33, 10 20 → 15.00). Hiç sayı verilmezse 'sayı yok' yazsın. "
                "Sonra iki durumu da çalıştırıp test et.",
-         kontrol=k_ortalama, iddia=True),
+         kontrol=k_ortalama, iddia=True, testler=t_ortalama),
     dict(no=14, ad="2 dosyada ad değiştir",
          istek="sandbox/ayarlar.py'deki HIZ değişkeninin adını KAT yap. sandbox klasöründe onu kullanan bütün "
                "dosyaları da güncelle, sonra hepsini çalıştırıp doğrula.",
@@ -334,6 +371,7 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
         "baglam": enbuyuk[0], "ozet": log.getvalue().count("eski mesaj özetleniyor"),
         "alt_gorev": log.getvalue().count("┌─ alt görev"),
         "dogrulanmayan": dogrulanmayan(cevap, kayit["kanit"]) if gorev.get("iddia") else None,
+        "eksik_test": gorev["testler"](kayit) if gorev.get("testler") else None,
         "onaylar": kayit["onaylar"], "cevap": cevap, "log": log.getvalue(),
     }
 
@@ -357,7 +395,8 @@ def ozet(sonuclar, modlar):
                   f"ort. {sum(r['sure'] for r in rs) / len(rs):.0f} sn, "
                   f"ort. {sum(len(r['araclar']) for r in rs) / len(rs):.1f} araç çağrısı, "
                   f"düşünmesize yedek: {sum(r['yedek'] for r in rs)} kez ({sum(r['yedek'] > 0 for r in rs)} çalıştırmada), "
-                  f"uydurma şüphesi: {sum(bool(r['dogrulanmayan']) for r in rs)} çalıştırmada")
+                  f"uydurma şüphesi: {sum(bool(r['dogrulanmayan']) for r in rs)} çalıştırmada, "
+                  f"eksik test: {sum(bool(r['eksik_test']) for r in rs)} çalıştırmada")
 
 
 def main():
@@ -416,7 +455,8 @@ def main():
                       f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  bağlam={r['baglam']}/{ajan.NUM_CTX}"
                       f"{'  özet=' + str(r['ozet']) if r['ozet'] else ''}"
                       f"{'  alt görev=' + str(r['alt_gorev']) if r['alt_gorev'] else ''}"
-                      f"{'  ⚠️ doğrulanmayan=' + str(r['dogrulanmayan']) if r['dogrulanmayan'] else ''}  {r['not']}", flush=True)
+                      f"{'  ⚠️ doğrulanmayan=' + str(r['dogrulanmayan']) if r['dogrulanmayan'] else ''}"
+                      f"{'  ⚠️ eksik test=' + str(r['eksik_test']) if r['eksik_test'] else ''}  {r['not']}", flush=True)
 
     yaz(tamamlandi=True)
     ozet(sonuclar, modlar)
