@@ -929,3 +929,36 @@ haline bakıyor, o noktada dosya düzelmiş oluyor (bu iki ölçümde 3, önceki
 döngü düzeyinde kontrol (TEKRAR_UYARISI gibi): model bitirmek isteyince cevabındaki çıktı iddiaları gerçek komut
 çıktılarıyla karşılaştırılsın, kanıtsız iddia varsa "ya çalıştır ya çıkar" notuyla devam ettirilsin. Risk: ajan
 eval'in uydurma kontrolünü kullanırsa o sütun kendini doğrular → etkiyi bağımsız eksik test sütunuyla değerlendir.
+
+### 10m — Döngü düzeyinde kanıt kontrolü (bitiş kancası)
+**Ne yaptık:**
+- `step3_agent.py`: `BITIS_KONTROLU` kancası — model bitirmek isteyince `(mesajlar, cevap)` ile çağrılır; not dönerse
+  konuşmaya eklenir, döngü sürer. İstek başına en fazla 1 uyarı (yanlış alarm döngüye sokmasın).
+- `step5_shell.py`: uydurma kontrolü eval'den buraya taşındı (`kanitsiz_iddialar`); `kanit_kontrolu` konuşmadaki araç
+  sonuçlarını + araç argümanlarını + kullanıcı mesajlarını kanıt sayar, kanıtsız iddia varsa "ya çalıştır ya çıkar"
+  notu. step5 yüklenince kancaya bağlanır (tam ajan da).
+- `step8_subtask.py`: alt görevde kanca kapalı (aşağıdaki hata yüzünden; ölçümden sonra eklendi).
+- `step6_eval.py`: kontrol tek kaynaktan (`kabuk.kanitsiz_iddialar`); `--kanit-kontrolu-yok`, `kanit_uyarisi` sütunu.
+  Uydurma sütunu artık ajanın kaçırdığını ölçer — etki bağımsız eksik_test sütunuyla değerlendirilmeli.
+
+**Ölçüm** (think açık, #11 + #13 ×5, tam + step5; 10l-b ile aynı ayar):
+| #11 | 10l-b (kural) | 10m (kural + kanca) |
+|---|---|---|
+| başarı (eval) | 10/10 | 9/10 |
+| eksik test | 7/10 | 4/10 |
+| uydurma (son cevap) | 2/10 | 2/10 |
+| tur sınırı | 3 | 2 |
+#13: uydurma 1/10 → 0/10, eksik test 0.
+
+Kanıt uyarısı 4 kez: tam #11-5 ve step5 #11-4'te model nottaki komutlardan sadece birini (çarpma) çalıştırıp cevabı
+yeniden yazdı, diğer uydurmaları (çıkarma, bölme) bıraktı — tek uyarı hakkı bittiği için kabul edildi. step5 #11-2:
+uyarı sonrası eksik testi çalıştırdı ama tur sınırına takıldı.
+
+**Hata:** tam #11-3'te kanca alt görevde de çalıştı; alt ajanın run_command'ı yok, "çalıştır" notu turlarını yedi,
+ana ajan tur sınırına takıldı (❌). Düzeltildi (alt görevde kanca kapalı); bu ölçümde 1 çalıştırmayı etkiledi.
+
+**Kancanın göremedikleri:** tam #11-4 hiç komut çalıştırmadan "şu komutları çalıştır, sonucu buraya yaz" dedi (sonuç
+iddiası yok → uyarı yok); tam #11-2 çarpmayı çalıştırmadan "tüm operatörler test edildi" dedi (düz metin).
+
+**Karar:** kanca kalıyor (eksik test azaldı, örnek küçük). Sıradaki (10n): uyarı hakkı 2, not "listelenen her komutu
+ayrı ayrı çalıştır" diye netleşsin, tur sınırı 10 → 14 (uyarı turları bütçeyi yemesin); aynı ölçüm.

@@ -39,12 +39,15 @@ SYSTEM = hafiza.system_mesaji() + (
 
 def alt_gorev(gorev):
     yedek = dict(ajan.SAYAC)
+    # Bitiş kontrolü (Adım 10m) sadece ana ajanda: alt ajanın run_command'ı yok, "çalıştır" notu turlarını boşa yedi
+    kontrol, ajan.BITIS_KONTROLU = ajan.BITIS_KONTROLU, None
     mesajlar = [{"role": "system", "content": ALT_SYSTEM}, {"role": "user", "content": gorev}]
     print(f"  ┌─ alt görev: {gorev[:80]}")
     try:
         sonuc = ajan.ajan_turu(mesajlar, ajan.THINK, ALT_MAKS_TUR, okuma.TARIFLER, alt_araci_calistir)
     finally:
         ajan.SAYAC.update(yedek)
+        ajan.BITIS_KONTROLU = kontrol
     print(f"  └─ alt görev bitti ({len(sonuc)} karakter)")
     if not sonuc:
         return "Alt ajan boş cevap döndü."

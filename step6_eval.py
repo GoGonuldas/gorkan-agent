@@ -186,33 +186,9 @@ def k_yeniden_adlandir(cevap, kok, kayit):
 
 
 # --- Uydurma kontrolü (Adım 10k-b): cevaptaki çıktı iddiaları gerçekten bir araç sonucundan mı geliyor ---
-
-def dogrulanmayan(cevap, kanit):
-    """Cevaptaki çıktı iddialarından hiçbir kanıtta geçmeyenler.
-
-    İddia: kod bloklarının satırları (python blokları hariç) ve satır içi `…` kodlar — 10k-b ölçümünde modeller
-    çıktıları hep satır içi yazdı (`1 2 4` → `2.33`). Çalıştırılmamış bir `python …` komutu tek başına öneridir
-    (testi kullanıcıya bırakmak, ayrı sorun); ama aynı satırda bir sonuç gösteriliyorsa (→, "çıktı") çalıştırılmış
-    gibi sunulmuştur, iddia sayılır (10l: "`python sandbox/hesap.py 2 3 *` → 6.0", hiç çalıştırılmamıştı).
-    kanit: run_command çıktıları + çalıştırılan komutlar + yazılan dosya metinleri (tam, kısaltılmamış).
-    Başarıyı değiştirmez, sadece işaretler; etiketler ("hiç sayı") yanlış alarm verebilir, elle bakılır.
-    Sınır: işaretsiz düz metindeki iddiaları ("sonuç 2.33") ve gerçek bir çıktıyla aynı olan uydurmayı görmez.
-    """
-    iddialar = []
-    for dil, blok in re.findall(r"```(\w*)\n(.*?)```", cevap, re.S):
-        if dil.lower() not in ("python", "py"):
-            iddialar += [(satir, "") for satir in blok.splitlines()]
-    for satir in re.sub(r"```.*?```", "", cevap, flags=re.S).splitlines():
-        iddialar += [(kod, satir) for kod in re.findall(r"`([^`\n]+)`", satir)]
-    supheli = []
-    for iddia, satir in iddialar:
-        iddia = re.sub(r"^\$\s*", "", iddia.strip())  # "$ python3 …" → komut
-        if len(iddia) < 2 or any(iddia in k for k in kanit):
-            continue
-        if re.match(r"python3? ", iddia) and not re.search(r"→|çıktı", satir.split(iddia, 1)[-1], re.I):
-            continue  # sonuç gösterilmeyen öneri
-        supheli.append(iddia)
-    return supheli
+# Fonksiyon 10m'de ajana taşındı (step5_shell.kanitsiz_iddialar): ajan bitirmeden kendini kontrol ediyor. Bu sütun
+# artık ajanın kaçırdığını ölçer; düzeltmenin etkisi bağımsız eksik_test sütunuyla değerlendirilir.
+dogrulanmayan = kabuk.kanitsiz_iddialar
 
 
 # --- Eksik test (Adım 10l): istenen testler gerçekten çalıştırıldı mı ---
@@ -370,6 +346,7 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
         "yedek": log.getvalue().count("düşünmeden yeniden soruluyor"),  # düşünme takılıp düşünmesize düşülen çağrı
         "baglam": enbuyuk[0], "ozet": log.getvalue().count("eski mesaj özetleniyor"),
         "alt_gorev": log.getvalue().count("┌─ alt görev"),
+        "kanit_uyarisi": log.getvalue().count("bitiş kontrolü: cevaba not eklendi"),
         "dogrulanmayan": dogrulanmayan(cevap, kayit["kanit"]) if gorev.get("iddia") else None,
         "eksik_test": gorev["testler"](kayit) if gorev.get("testler") else None,
         "onaylar": kayit["onaylar"], "cevap": cevap, "log": log.getvalue(),
@@ -409,6 +386,7 @@ def main():
     ap.add_argument("--dusunme-siniri", type=float, default=ajan.DUSUNME_SINIRI)
     ap.add_argument("--sandbox", action="store_true", help="komutları Adım 9'un sandbox-exec'i içinde çalıştır")
     ap.add_argument("--dusunce-sakla", action="store_true", help="önceki turların düşünmesi konuşmada kalsın (10j öncesi)")
+    ap.add_argument("--kanit-kontrolu-yok", action="store_true", help="ajanın bitiş kontrolü kapalı (10m öncesi)")
     ap.add_argument("--ajan", choices=["step5", "tam"], default="step5", help="tam: Adım 9 ajanı (sandbox dahil)")
     args = ap.parse_args()
     if args.ajan == "tam":
@@ -417,6 +395,8 @@ def main():
         import step9_sandbox  # noqa: F401  (yüklenince step5'in run_command'ını sandbox'a bağlar)
     ajan.DUSUNME_SINIRI = args.dusunme_siniri
     ajan.DUSUNCE_SAKLA = args.dusunce_sakla
+    if args.kanit_kontrolu_yok:
+        ajan.BITIS_KONTROLU = None
     if sys.platform == "darwin":
         # Adım 10f: ekran kapanınca Mac uyudu, eval sadece kısa arka plan uyanışlarında ilerledi (çalıştırma 50 sn
         # yerine 1000+ sn). caffeinate -i boşta uykuyu engeller, -w bu süreç bitince kendisi de kapanır.
@@ -439,7 +419,7 @@ def main():
         # Her çalıştırmadan sonra yazılır: dün tam ajan ölçümü 28/42'de iptal edilince sonuçlar kayboldu (Adım 10f).
         # Önce geçici dosyaya, sonra yer değiştir: yazarken Ctrl-C gelirse eski dosya bozulmasın.
         gecici = dosya.with_suffix(".tmp")
-        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "dusunce_sakla": ajan.DUSUNCE_SAKLA, "sandbox": args.sandbox, "tekrar": args.tekrar,
+        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "dusunce_sakla": ajan.DUSUNCE_SAKLA, "kanit_kontrolu": bool(ajan.BITIS_KONTROLU), "sandbox": args.sandbox, "tekrar": args.tekrar,
                                       "tamamlandi": tamamlandi, "planlanan": toplam, "sonuclar": sonuclar},
                                      ensure_ascii=False, indent=1), encoding="utf-8")
         gecici.replace(dosya)
@@ -455,6 +435,7 @@ def main():
                       f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  bağlam={r['baglam']}/{ajan.NUM_CTX}"
                       f"{'  özet=' + str(r['ozet']) if r['ozet'] else ''}"
                       f"{'  alt görev=' + str(r['alt_gorev']) if r['alt_gorev'] else ''}"
+                      f"{'  kanıt uyarısı' if r['kanit_uyarisi'] else ''}"
                       f"{'  ⚠️ doğrulanmayan=' + str(r['dogrulanmayan']) if r['dogrulanmayan'] else ''}"
                       f"{'  ⚠️ eksik test=' + str(r['eksik_test']) if r['eksik_test'] else ''}  {r['not']}", flush=True)
 

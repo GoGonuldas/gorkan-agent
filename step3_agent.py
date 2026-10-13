@@ -48,6 +48,9 @@ TEKRAR_NOTU = (
 # Adım 10j: modelin düşünmesi assistant mesajında kalırsa Ollama onu sonraki her çağrıda geri gönderiyor (2100
 # karakter → +784 prompt token); bir isteğin bütün turlarının düşünmesi birikiyordu. False: konuşmaya düşünmesiz eklenir.
 DUSUNCE_SAKLA = False
+# Adım 10m: model bitirmek isteyince çağrılır: (mesajlar, cevap) → None ya da modele gidecek not. Not dönerse konuşmaya
+# eklenir, döngü sürer; istek başına en fazla bir kez (yanlış alarm döngüye sokmasın). step5 bağlıyor (kanıt kontrolü).
+BITIS_KONTROLU = None
 THINK = True  # sohbet() komut satırından ayarlar; alt görevler (Adım 8c) aynı ayarla çalışsın diye burada
 
 
@@ -119,6 +122,7 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
     hazirla(mesajlar): her model çağrısından önce çalışır, listeyi yerinde değiştirebilir (Adım 8b: özetleme).
     """
     onceki = {}  # (araç adı, argümanlar) → son sonuç; bu istek boyunca
+    uyarildi = False  # BITIS_KONTROLU bu istekte not ekledi mi
     for tur in range(1, maks_tur + 1):
         if hazirla:
             hazirla(mesajlar)
@@ -128,7 +132,13 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
         mesajlar.append(mesaj)
 
         if not mesaj.tool_calls:  # araç istemedi → iş bitti
-            return mesaj.content.strip()
+            not_ = None if uyarildi or not BITIS_KONTROLU else BITIS_KONTROLU(mesajlar, mesaj.content)
+            if not not_:
+                return mesaj.content.strip()
+            uyarildi = True
+            print("     (bitiş kontrolü: cevaba not eklendi, devam)")
+            mesajlar.append({"role": "user", "content": not_})
+            continue
 
         print(f"  [tur {tur}]")
         for cagri in mesaj.tool_calls:
