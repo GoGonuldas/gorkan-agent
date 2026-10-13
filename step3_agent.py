@@ -49,8 +49,12 @@ TEKRAR_NOTU = (
 # karakter → +784 prompt token); bir isteğin bütün turlarının düşünmesi birikiyordu. False: konuşmaya düşünmesiz eklenir.
 DUSUNCE_SAKLA = False
 # Adım 10m: model bitirmek isteyince çağrılır: (mesajlar, cevap) → None ya da modele gidecek not. Not dönerse konuşmaya
-# eklenir, döngü sürer; istek başına en fazla bir kez (yanlış alarm döngüye sokmasın). step5 bağlıyor (kanıt kontrolü).
+# eklenir, döngü sürer; istek başına en fazla BITIS_UYARI_HAKKI kez (yanlış alarm döngüye sokmasın). step5 bağlıyor.
 BITIS_KONTROLU = None
+# 10m'de 1'di: model nottaki komutlardan sadece birini çalıştırıp kalan uydurmalarla bitirdi, ikinci cevap kabul edildi
+BITIS_UYARI_HAKKI = 2
+# 10n'de 10 → 14: bitiş uyarıları da tur harcıyor (10m'de uyarı sonrası eksik testi çalıştırırken sınıra takıldı)
+MAKS_TUR = 14
 THINK = True  # sohbet() komut satırından ayarlar; alt görevler (Adım 8c) aynı ayarla çalışsın diye burada
 
 
@@ -122,7 +126,7 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
     hazirla(mesajlar): her model çağrısından önce çalışır, listeyi yerinde değiştirebilir (Adım 8b: özetleme).
     """
     onceki = {}  # (araç adı, argümanlar) → son sonuç; bu istek boyunca
-    uyarildi = False  # BITIS_KONTROLU bu istekte not ekledi mi
+    uyari = 0  # BITIS_KONTROLU bu istekte kaç not ekledi
     for tur in range(1, maks_tur + 1):
         if hazirla:
             hazirla(mesajlar)
@@ -132,10 +136,10 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
         mesajlar.append(mesaj)
 
         if not mesaj.tool_calls:  # araç istemedi → iş bitti
-            not_ = None if uyarildi or not BITIS_KONTROLU else BITIS_KONTROLU(mesajlar, mesaj.content)
+            not_ = None if uyari >= BITIS_UYARI_HAKKI or not BITIS_KONTROLU else BITIS_KONTROLU(mesajlar, mesaj.content)
             if not not_:
                 return mesaj.content.strip()
-            uyarildi = True
+            uyari += 1
             print("     (bitiş kontrolü: cevaba not eklendi, devam)")
             mesajlar.append({"role": "user", "content": not_})
             continue
@@ -164,7 +168,7 @@ def sohbet(system=SYSTEM, tarifler=TARIFLER, calistir=araci_calistir, hazirla=No
     ap = argparse.ArgumentParser()
     # varsayılan açık: Adım 6'da think açık %97, kapalı %63 (ama ~6.5 kat yavaş). Kapatmak için --no-think
     ap.add_argument("--think", action=argparse.BooleanOptionalAction, default=True, help="qwen3'ün düşünme modu")
-    ap.add_argument("--maks-tur", type=int, default=10, help="bir istek için en fazla araç turu")
+    ap.add_argument("--maks-tur", type=int, default=MAKS_TUR, help="bir istek için en fazla araç turu")
     ap.add_argument("--dusunme-siniri", type=float, default=DUSUNME_SINIRI,
                     help="düşünme bu kadar saniyeyi aşarsa düşünmeden yeniden sor")
     ap.add_argument("--num-ctx", type=int, default=NUM_CTX, help="bağlam penceresi (token)")

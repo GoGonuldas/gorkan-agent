@@ -140,8 +140,9 @@ def kanitsiz_iddialar(cevap, kanit):
 
 
 KANIT_NOTU = (
-    "NOT: Cevabındaki şu sonuçlar hiçbir komut çıktısında geçmiyor: {}. Bunları run_command ile gerçekten çalıştır "
-    "ya da cevaptan çıkar; çalıştırmadığın bir şeyin sonucunu yazma. Sonra cevabını yeniden yaz."
+    "NOT: Cevabındaki şu sonuçlar hiçbir komut çıktısında geçmiyor: {}. Listedeki HER biri için ayrı bir "
+    "run_command çağır ya da onu cevaptan çıkar; sadece birini çalıştırıp diğerlerini bırakma. Çalıştırmadığın "
+    "bir şeyin sonucunu yazma. Sonra cevabını sadece gerçek çıktılarla yeniden yaz."
 )
 
 
@@ -151,8 +152,10 @@ def kanit_kontrolu(mesajlar, cevap):
     kanit = []
     for m in mesajlar:
         rol = m.get("role") if isinstance(m, dict) else m.role
-        if rol in ("tool", "user"):
-            kanit.append(m["content"] if isinstance(m, dict) else m.content or "")
+        icerik = (m["content"] if isinstance(m, dict) else m.content) or ""
+        # kendi notumuz kanıt değil: şüpheli iddiaları listeliyor, sayılsa ikinci kontrolde "kanıtlı" görünürdü
+        if rol == "tool" or (rol == "user" and not icerik.startswith(KANIT_NOTU[:20])):
+            kanit.append(icerik)
         for c in (None if isinstance(m, dict) else m.tool_calls) or []:
             kanit += [str(v) for v in (c.function.arguments or {}).values()]
     supheli = kanitsiz_iddialar(cevap or "", kanit)

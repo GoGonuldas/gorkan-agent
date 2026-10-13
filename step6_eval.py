@@ -282,7 +282,7 @@ def ajan_kur(ad, kok):
     return hafiza.system_mesaji() + ek, alt.TARIFLER, alt.araci_calistir, alt.hazirla
 
 
-def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
+def calistir(gorev, think, maks_tur=ajan.MAKS_TUR, ajan_adi="step5"):
     # resolve(): macOS'ta /var → /private/var kısayol; çözülmezse kilit her yolu "proje dışında" sanar
     kok = Path(tempfile.mkdtemp(prefix="gorkan-eval-")).resolve()
     for ad in KOPYALANACAK:
@@ -291,7 +291,7 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
     for yol, icerik in gorev.get("kur", {}).items():
         (kok / yol).write_text(icerik, encoding="utf-8")
 
-    kayit = {"araclar": [], "onaylar": [], "sonuclar": [], "kanit": []}
+    kayit = {"araclar": [], "onaylar": [], "sonuclar": [], "kanit": [gorev["istek"]]}
     kural = gorev.get("onay", rm_hayir)
 
     def sahte_sor(soru):
@@ -307,11 +307,10 @@ def calistir(gorev, think, maks_tur=10, ajan_adi="step5"):
         sonuc = araci_calistir(cagri)
         # Adım 10k: logda sonucun sadece uzunluğu vardı; cevaptaki iddiaları araç çıktısıyla karşılaştırabilmek için içerik de
         kayit["sonuclar"].append({"arac": cagri.function.name, "arg": cagri.function.arguments, "sonuc": sonuc[:MAKS_SONUC_KAYIT]})
-        arg = cagri.function.arguments or {}
-        if cagri.function.name == "run_command":
-            kayit["kanit"] += [sonuc, str(arg.get("command", ""))]
-        elif cagri.function.name in ("write_file", "edit_file"):
-            kayit["kanit"].append(str(arg.get("content") or arg.get("new_text") or ""))
+        # kanıt ajanın bitiş kontrolüyle aynı (step5.kanit_kontrolu, 10n): bütün araç sonuçları + argümanlar + istek.
+        # Önceden sadece run_command / yazılan dosyalardı; read_file'dan gelen "\t" gibi alıntılar yanlış alarm veriyordu.
+        # Sınır: alt görevin (komut çalıştıramaz) "Çıkış: 6.0" diye yazdığı tahminler de kanıt sayılıyor.
+        kayit["kanit"] += [sonuc, *(str(v) for v in (cagri.function.arguments or {}).values())]
         return sonuc
 
     def hazirla(m):  # her model çağrısından önce: önceki çağrının sayısını kaydet, sonra (varsa) özetle
@@ -419,7 +418,7 @@ def main():
         # Her çalıştırmadan sonra yazılır: dün tam ajan ölçümü 28/42'de iptal edilince sonuçlar kayboldu (Adım 10f).
         # Önce geçici dosyaya, sonra yer değiştir: yazarken Ctrl-C gelirse eski dosya bozulmasın.
         gecici = dosya.with_suffix(".tmp")
-        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "dusunce_sakla": ajan.DUSUNCE_SAKLA, "kanit_kontrolu": bool(ajan.BITIS_KONTROLU), "sandbox": args.sandbox, "tekrar": args.tekrar,
+        gecici.write_text(json.dumps({"ajan": args.ajan, "model": ajan.MODEL, "num_ctx": ajan.NUM_CTX, "host": args.host, "dusunme_siniri": ajan.DUSUNME_SINIRI, "dusunce_sakla": ajan.DUSUNCE_SAKLA, "kanit_kontrolu": bool(ajan.BITIS_KONTROLU), "uyari_hakki": ajan.BITIS_UYARI_HAKKI, "maks_tur": ajan.MAKS_TUR, "sandbox": args.sandbox, "tekrar": args.tekrar,
                                       "tamamlandi": tamamlandi, "planlanan": toplam, "sonuclar": sonuclar},
                                      ensure_ascii=False, indent=1), encoding="utf-8")
         gecici.replace(dosya)
@@ -435,7 +434,7 @@ def main():
                       f"{'  yedek=' + str(r['yedek']) if r['yedek'] else ''}  bağlam={r['baglam']}/{ajan.NUM_CTX}"
                       f"{'  özet=' + str(r['ozet']) if r['ozet'] else ''}"
                       f"{'  alt görev=' + str(r['alt_gorev']) if r['alt_gorev'] else ''}"
-                      f"{'  kanıt uyarısı' if r['kanit_uyarisi'] else ''}"
+                      f"{'  kanıt uyarısı=' + str(r['kanit_uyarisi']) if r['kanit_uyarisi'] else ''}"
                       f"{'  ⚠️ doğrulanmayan=' + str(r['dogrulanmayan']) if r['dogrulanmayan'] else ''}"
                       f"{'  ⚠️ eksik test=' + str(r['eksik_test']) if r['eksik_test'] else ''}  {r['not']}", flush=True)
 

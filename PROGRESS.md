@@ -962,3 +962,32 @@ iddiası yok → uyarı yok); tam #11-2 çarpmayı çalıştırmadan "tüm opera
 
 **Karar:** kanca kalıyor (eksik test azaldı, örnek küçük). Sıradaki (10n): uyarı hakkı 2, not "listelenen her komutu
 ayrı ayrı çalıştır" diye netleşsin, tur sınırı 10 → 14 (uyarı turları bütçeyi yemesin); aynı ölçüm.
+
+### 10n — İki uyarı hakkı, daha net not, tur sınırı 14
+**Ne yaptık:**
+- `step3_agent.py`: `BITIS_UYARI_HAKKI = 2` (10m: 1), `MAKS_TUR = 14` (10'du; komut satırı ve eval varsayılanı).
+- `step5_shell.py`: not "Listedeki HER biri için ayrı bir run_command çağır ya da onu cevaptan çıkar; sadece birini
+  çalıştırıp diğerlerini bırakma". **Hata (ölçümden önce, modelsiz testte yakalandı):** kendi notumuz kullanıcı mesajı
+  olarak eklendiği için bir sonraki kontrolde kanıt sayılıyordu — not şüpheli iddiaları listelediğinden ikinci uyarı
+  hiç verilmezdi. Notlar artık kanıttan hariç.
+- `step6_eval.py`: kanıt ajanınkiyle aynı (bütün araç sonuçları + argümanlar + istek); 10n JSON'larında `dogrulanmayan`
+  yeniden hesaplandı (2 yanlış alarm gitti; tam #11-3'te kalan `10 0 /` JSON'daki 500 karakter kısaltmasından).
+
+**Ölçüm** (think açık, #11 + #13 ×5, tam + step5):
+| #11 | 10l-b (kural) | 10m (1 uyarı) | 10n (2 uyarı, tur 14) |
+|---|---|---|---|
+| başarı (eval) | 10/10 | 9/10 | 10/10 |
+| eksik test | 7/10 | 4/10 | 5/10 |
+| uydurma (son cevap) | 2/10 | 2/10 | 1/10 |
+| tur sınırı | 3 | 2 | 0 |
+#13: kanca 3 kez uyardı, üçünde de model eksik testi (`10 20`) gerçekten çalıştırıp gerçek çıktıyla yeniden yazdı.
+
+Direnen tek örnek: tam #11-2 iki uyarıda da istenen çıkarma/çarpma/bölme yerine toplamayı tekrar çalıştırdı, sonra
+"Test Sonuçları (Gerçek Çıktılar)" başlığıyla üç sonuç uydurdu.
+
+**Eksik testin baskın nedeni artık kullanıcıya bırakmak:** eksik testli 5 denemenin 4'ünde model toplamayı çalıştırıp
+"Şimdi diğer işlemleri test edelim: `python …`" / "ayrı ayrı çalıştırın" deyip bitirdi. Sonuç iddiası yok → kanca
+görmüyor.
+
+**Karar:** 10n kalıyor (uydurma 1/10, tur sınırı 0, #13'te kanca uydurmayı gerçek teste çeviriyor). Sıradaki (10o):
+kanca kullanıcıya bırakılan, çalıştırılmamış `python …` komutlarını da görsün ("kendin çalıştır ya da nedenini söyle").
