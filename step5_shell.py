@@ -139,27 +139,61 @@ def kanitsiz_iddialar(cevap, kanit):
     return supheli
 
 
+def calistirilmamis_komutlar(cevap, calisanlar):
+    """Adım 10o — cevapta önerilen ama run_command ile hiç çalıştırılmamış `python …` komutları.
+
+    10n'de eksik testin baskın nedeni: model toplamayı çalıştırıp "Şimdi diğer işlemleri test edelim: `python …`"
+    deyip bitiriyordu; sonuç iddiası olmadığı için kanitsiz_iddialar görmüyordu.
+    calisanlar: run_command'a gerçekten verilen komutlar (kanıt değil: alt görevin yazdığı komut çalıştırılmış sayılmaz).
+    """
+    adaylar = []
+    for dil, blok in re.findall(r"```(\w*)\n(.*?)```", cevap, re.S):
+        if dil.lower() not in ("python", "py"):
+            adaylar += blok.splitlines()
+    adaylar += re.findall(r"`([^`\n]+)`", re.sub(r"```.*?```", "", cevap, flags=re.S))
+    calisan = {" ".join(k.split()) for k in calisanlar}
+    komutlar = []
+    for a in adaylar:
+        a = " ".join(re.sub(r"^\$\s*", "", a.strip()).split())
+        if re.match(r"python3? \S+\.py", a) and a not in calisan and a not in komutlar:
+            komutlar.append(a)
+    return komutlar
+
+
+NOT_ONEKI = "NOT (bitiş kontrolü): "  # kendi notlarımız kanıt sayılmasın diye tanınır
 KANIT_NOTU = (
-    "NOT: Cevabındaki şu sonuçlar hiçbir komut çıktısında geçmiyor: {}. Listedeki HER biri için ayrı bir "
+    NOT_ONEKI + "Cevabındaki şu sonuçlar hiçbir komut çıktısında geçmiyor: {}. Listedeki HER biri için ayrı bir "
     "run_command çağır ya da onu cevaptan çıkar; sadece birini çalıştırıp diğerlerini bırakma. Çalıştırmadığın "
     "bir şeyin sonucunu yazma. Sonra cevabını sadece gerçek çıktılarla yeniden yaz."
+)
+DEVIR_NOTU = (
+    NOT_ONEKI + "Cevabında çalıştırmadığın komutlar var: {}. Bunları run_command ile kendin çalıştırabilirsin; "
+    "kullanıcıya bırakma. Test istendiyse her birini ayrı çalıştırıp gerçek çıktıyı yaz. Çalıştırmaman için bir "
+    "neden varsa (ör. tehlikeli, kullanıcı istemedi) bunu cevabında kısaca söyle."
 )
 
 
 def kanit_kontrolu(mesajlar, cevap):
-    """Adım 10m — ajanın bitiş kontrolü: cevaptaki kanıtsız çıktı iddiaları için modele not (yoksa None).
-    10l-b'de sistem mesajındaki kural yetmedi (#11'de uydurma 2/10, eksik test 7/10)."""
-    kanit = []
+    """Ajanın bitiş kontrolü: kanıtsız çıktı iddiaları (10m) ve kullanıcıya bırakılan komutlar (10o) için modele not
+    (yoksa None). 10l-b'de sistem mesajındaki kural yetmedi (#11'de uydurma 2/10, eksik test 7/10)."""
+    kanit, calisanlar = [], []
     for m in mesajlar:
         rol = m.get("role") if isinstance(m, dict) else m.role
         icerik = (m["content"] if isinstance(m, dict) else m.content) or ""
         # kendi notumuz kanıt değil: şüpheli iddiaları listeliyor, sayılsa ikinci kontrolde "kanıtlı" görünürdü
-        if rol == "tool" or (rol == "user" and not icerik.startswith(KANIT_NOTU[:20])):
+        if rol == "tool" or (rol == "user" and not icerik.startswith(NOT_ONEKI)):
             kanit.append(icerik)
         for c in (None if isinstance(m, dict) else m.tool_calls) or []:
-            kanit += [str(v) for v in (c.function.arguments or {}).values()]
-    supheli = kanitsiz_iddialar(cevap or "", kanit)
-    return KANIT_NOTU.format(", ".join(f"'{x}'" for x in supheli)) if supheli else None
+            arg = c.function.arguments or {}
+            kanit += [str(v) for v in arg.values()]
+            if c.function.name == "run_command":
+                calisanlar.append(str(arg.get("command", "")))
+    notlar = []
+    if supheli := kanitsiz_iddialar(cevap or "", kanit):
+        notlar.append(KANIT_NOTU.format(", ".join(f"'{x}'" for x in supheli)))
+    if devir := [k for k in calistirilmamis_komutlar(cevap or "", calisanlar) if k not in supheli]:
+        notlar.append(DEVIR_NOTU.format(", ".join(f"'{x}'" for x in devir)))
+    return "\n".join(notlar) or None
 
 
 ajan.BITIS_KONTROLU = kanit_kontrolu

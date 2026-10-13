@@ -991,3 +991,33 @@ görmüyor.
 
 **Karar:** 10n kalıyor (uydurma 1/10, tur sınırı 0, #13'te kanca uydurmayı gerçek teste çeviriyor). Sıradaki (10o):
 kanca kullanıcıya bırakılan, çalıştırılmamış `python …` komutlarını da görsün ("kendin çalıştır ya da nedenini söyle").
+
+### 10o — Kanca kullanıcıya bırakılan komutları da görüyor
+**Ne yaptık** (`step5_shell.py`): `calistirilmamis_komutlar` — cevapta önerilen ama run_command'a hiç verilmemiş
+`python …` komutları (karşılaştırma kanıtla değil, gerçekten çalışan komutlarla: alt görevin yazdığı komut
+çalıştırılmış sayılmaz). Varsa `DEVIR_NOTU`: "kendin çalıştırabilirsin, kullanıcıya bırakma; çalıştırmaman için bir
+neden varsa söyle". İki not aynı uyarı hakkını (2) paylaşıyor; ikisi de `NOT_ONEKI` ile başlıyor, kanıttan hariç.
+Ölçümden önce 10l-b…10n'in 60 kaydında yeniden oynatıldı: 15 tetiklenme, 11'i eksik testli, kalan 4'ü de çalıştırılmamış
+komutu sonuçla sunan cevaplar — gereksiz uyarı yok.
+
+**Ölçüm** (think açık, #11 + #13 ×5, tam + step5):
+| #11 | 10l-b | 10m | 10n | 10o |
+|---|---|---|---|---|
+| başarı (eval) | 10/10 | 9/10 | 10/10 | 9/10 |
+| eksik test | 7/10 | 4/10 | 5/10 | **1/10** |
+| uydurma (son cevap) | 2/10 | 2/10 | 1/10 | 2/10 |
+| tur sınırı | 3 | 2 | 0 | 0 |
+| ort. süre | 174 sn | 181 sn | 170 sn | 220 sn |
+#13: 10/10, uyarı yok, sorun yok.
+
+Kalan uydurmalar (2) iki uyarıdan sonra, istenmemiş ek testlerde: tam #11-4 `6 2 /` → 3.0, step5 #11-1 `8 0 /` →
+"Hata: Sıfıra bölünme"; istenen üç test ikisinde de gerçekten çalıştırılmış.
+
+**Yeni örüntü — söyleyip durma:** tam #11-3 yanlış sırayla iki kez çalıştırıp "Dosyanın içeriğini kontrol edelim." deyip
+bitirdi (komut da iddia da yok → kanca görmüyor). tam #11-2 (❌) beş testi de çalıştırdı, hepsi `\t` hatası verdi,
+düzeltmek yerine "write_file ile yeniden yazmamı ister misiniz?" diye sordu. (Eval'in `write_file` işareti yanlış
+alarm: araç adı satır içi kod olarak yazılmış.)
+
+**Karar:** 10o kalıyor — eksik test 5/10 → 1/10, şimdiye kadarki en net etki. Bedel: ~%25 daha uzun süre (ek turlar).
+Sıradaki: kanca bütün görevlerde çalışıyor ama sadece #11/#13'te ölçüldü → tam ajanla #1–14 ×3 (gereksiz uyarı,
+bozulma var mı). Aday iş: "yapacağını söyleyip durma".
