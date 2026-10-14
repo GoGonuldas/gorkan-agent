@@ -1021,3 +1021,54 @@ alarm: araç adı satır içi kod olarak yazılmış.)
 **Karar:** 10o kalıyor — eksik test 5/10 → 1/10, şimdiye kadarki en net etki. Bedel: ~%25 daha uzun süre (ek turlar).
 Sıradaki: kanca bütün görevlerde çalışıyor ama sadece #11/#13'te ölçüldü → tam ajanla #1–14 ×3 (gereksiz uyarı,
 bozulma var mı). Aday iş: "yapacağını söyleyip durma".
+
+### 10p — #11–14 düşüşü: suçlu 10l-b'nin sistem mesajı kuralı, kaldırıldı
+**Tetik:** 10o'dan sonra tam ajanla #1–14 ×3 (kanca açık): 35/42. #1–10 29/30 ama #11–14 6/12 (10j'de 11/12):
+#14 0/3 (model "bu adımları takip et" deyip oyun.py'yi düzeltmeden bitirdi), #12 1/3 (dosyaları sandbox/ içinde aradı),
+#11 2/3 ("dosyanın tam içeriğini yapıştırın"). Başarısız 7 denemenin 4'ünde kanca hiç tetiklenmemişti → kanca doğrudan
+sebep görünmüyordu; gürültü mü kod mu, ayırmak için A/B.
+
+**A/B** (tam ajan, think açık, sandbox, #11–14 ×3, Mac mini, aynı gün):
+| | 10j kodu (`9085b9e`, ayrı worktree) | bugünkü kod, kurallı | bugünkü kod, kuralsız |
+|---|---|---|---|
+| #11 | 3/3 | 2/3 | 3/3 |
+| #12 | 2/3 | 1/3 | 2/3 |
+| #13 | 3/3 | 3/3 | 3/3 |
+| #14 | 3/3 | **0/3** | **3/3** |
+| toplam | 11/12 | 6/12 | 11/12 |
+Kuralsız koşu için eval'e geçici `--test-kurali-yok` bayrağı eklendi (kuralı sistem mesajından çıkarıyordu); bayrak
+commit'lenmedi, JSON'daki `test_kurali: false` alanı ondan. Kanca üç koşuda da açık (10j kodunda yok).
+Sonuç: düşüşü kanca değil, 10l-b'nin "testleri kendin çalıştır, çalıştırmadığının sonucunu yazma" kuralı yapıyordu —
+model işi kendisi yapmak yerine kullanıcıya devrediyordu.
+
+**Ne yaptık** (`step5_shell.py`): kural sistem mesajından kaldırıldı; testlerin çalıştırılmasını bitiş kancası denetliyor.
+
+**Ölçüm** (kuralsız):
+| #11 (tam + step5, ×5) | 10l-b (sadece kural) | 10o (kural + kanca) | 10p (sadece kanca) |
+|---|---|---|---|
+| başarı (eval) | 10/10 | 9/10 | 10/10 |
+| eksik test | 7/10 | 1/10 | 3/10 |
+| uydurma (son cevap) | 2/10 | 2/10 | 1/10 |
+| ort. süre (#11+#13) | 174 sn | 220 sn | ~200 sn |
+#13: 10/10.
+
+| tam ajan #1–14 ×3 | 10o kodu (kurallı) | 10p (kuralsız) |
+|---|---|---|
+| başarı | 35/42 | **41/42** |
+| #11–14 | 6/12 | 11/12 |
+| uydurma / eksik test | 0 / 2 | 1 / 1 |
+| ort. süre | 100 sn | 103 sn |
+Kanca 10p tam ölçümünde 4 çalıştırmada uyardı (#5 ×2, #11, #14), dördü de başarılı; #5'teki uyarılar (2'şer)
+gereksiz olabilir — bakılmadı.
+
+Kural #11'de eksik testi biraz azaltıyordu (3/10 → 1/10) ama #12/#14'ü bozuyordu; takas açıkça kuralsızlıktan yana.
+
+**Kalanlar:**
+- Tam #11-3 (tek başarısızlık): "Önce `read_file` kullanın ve ardından `write_file` ile dosyayı baştan yazın… Lütfen
+  bu adımları takip edin." — sözde araç komutları; kanca sadece `python …` komutlarını görüyor (dünkü #14 ile aynı açık).
+- Tam #11-4 (×5 ölçümü): iki uyarı hakkı bitti, `python sandbox/hesap.py 10 0 /` → "Hata: Sıfıra bölünme" yine uyduruldu
+  (istenmemiş ek test).
+- Eksik testlerin bir kısmında model tek testi çalıştırıp iddia yazmadan bitiyor → kancanın göreceği bir şey yok.
+
+**Karar:** 10l-b kuralı geri alındı, 10m–10o kancası kalıyor. Sıradaki: kullanıcıya bırakma tespitini sözde araç
+komutlarına (`read_file …`, `write_file …`, `run_command python …`) genişletmek; #5 uyarılarına bakmak.

@@ -38,10 +38,8 @@ SYSTEM = yazma.SYSTEM + (
     " Komut çalıştırmak için run_command kullan. Komutlar proje kökünde çalışır; yollar dosya araçlarındaki gibi "
     "yazılır: proje kökündeki dosya 'README.md', sandbox'taki dosya 'sandbox/selam.py'. "
     "Kabuk yok: ; && | > kullanma, her çağrıda tek komut çalıştır. "
-    # Adım 10l-b: #11'de model testlerin çoğunu çalıştırmayıp komutları kullanıcıya bırakıyor, sonuçlarını tahminle yazıyordu
-    "Test etmen istenirse her durumu ayrı bir run_command ile kendin çalıştır; komutları kullanıcıya bırakma. "
-    "Cevapta sadece gerçekten çalıştırdığın komutların çıktısını yaz; çalıştırmadığın bir şeyin sonucunu yazma veya "
-    "tahmin etme. "
+    # Adım 10p: 10l-b'nin "testleri kendin çalıştır, çalıştırmadığının sonucunu yazma" kuralı kaldırıldı — modeli işi
+    # kullanıcıya bırakmaya itiyordu (#11–14 kurallı 6/12, kuralsız 11/12). Testlerin çalıştırılmasını bitiş kancası denetliyor.
     "Onay gerektiren işlerde kullanıcıdan sohbette izin isteme: aracı doğrudan çağır, onayı program sorar."
 )
 
