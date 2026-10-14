@@ -1109,3 +1109,16 @@ yeniden oynatma. Log sadece "not eklendi" yazdığından hangi notun çıktığ�
 20 sn → 110 sn; muhtemelen `stepN.py` deseni iddia sanıldı, kesin değil).
 
 **Karar:** 10q kalıyor (#5 düzeldi, gerileme kancaya bağlanamıyor). Sıradaki (10r): log'a notun kendisini yazdır.
+
+### 10r — Kanca notları log'a yazılıyor
+**Ne yaptık** (`step3_agent.py`): "(bitiş kontrolü: cevaba not eklendi, devam)" satırı aynı kaldı (eval uyarıları bu
+dizgeyi sayıyor); altına notun her satırının ilk 200 karakteri yazılıyor — şüpheli öğe listesi orada. Önceden hangi
+uyarının neden çıktığını görmek için yeniden koşturmak gerekiyordu (10q'da #5 ve #3-2).
+
+**Deneme** (tam, #3 + #11 ×2, commit'lenmedi): 4/4. Log'da notlar görünüyor; ilk denemede yeni bir yanlış alarm çıktı:
+#11-1 cevabı "Dilerseniz `a b -` gibi bir test de yapabilirsiniz" ile bitiyor, kanca `a b -` / `a - b = sonuç` yer
+tutucu kalıplarını çıktı iddiası sandı ve iki uyarı hakkının ikisi de buna gitti (10q'daki #3-2 `stepN.py` de büyük
+ihtimalle aynı tür). Not edildi, şimdilik düzeltilmedi.
+
+**Adım 10 için bitiş çizgisi** (kullanıcıyla kararlaştırıldı): 10r → Adım 10'u başlatan 5 gerçek işi bugünkü ajanla
+tekrar dene (başta 1/5) → sonuca göre kapanış özeti + README + kalan sınırlar.

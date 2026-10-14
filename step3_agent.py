@@ -141,6 +141,9 @@ def ajan_turu(mesajlar, think, maks_tur, tarifler=TARIFLER, calistir=araci_calis
                 return mesaj.content.strip()
             uyari += 1
             print("     (bitiş kontrolü: cevaba not eklendi, devam)")
+            # 10r: notun başı (şüpheli öğe listesi orada) — hangi uyarının neden çıktığı yeniden koşturmadan görülsün
+            for satir in not_.splitlines():
+                print(f"       {satir[:200]}{'…' if len(satir) > 200 else ''}")
             mesajlar.append({"role": "user", "content": not_})
             continue
 
