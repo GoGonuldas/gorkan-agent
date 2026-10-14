@@ -18,6 +18,7 @@ Komutlar:  /sifirla   /cikis
 """
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -116,6 +117,8 @@ def kanitsiz_iddialar(cevap, kanit):
     çıktıları hep satır içi yazdı (`1 2 4` → `2.33`). Çalıştırılmamış bir `python …` komutu tek başına öneridir
     (testi kullanıcıya bırakmak, ayrı sorun); ama aynı satırda bir sonuç gösteriliyorsa (→, "çıktı") çalıştırılmış
     gibi sunulmuştur, iddia sayılır (10l: "`python sandbox/hesap.py 2 3 *` → 6.0", hiç çalıştırılmamıştı).
+    10q: aynısı her komut için (ilk kelimesi PATH'te olan) — #5'te "kontrol etmek isterseniz `cat sandbox/merhaba.txt`"
+    önerisi iddia sanılıp iki gereksiz uyarı veriyordu.
     kanit: run_command çıktıları + çalıştırılan komutlar + yazılan dosya metinleri (tam, kısaltılmamış).
     Başarıyı değiştirmez, sadece işaretler; etiketler ("hiç sayı") yanlış alarm verebilir, elle bakılır.
     Sınır: işaretsiz düz metindeki iddiaları ("sonuç 2.33") ve gerçek bir çıktıyla aynı olan uydurmayı görmez.
@@ -131,7 +134,8 @@ def kanitsiz_iddialar(cevap, kanit):
         iddia = re.sub(r"^\$\s*", "", iddia.strip())  # "$ python3 …" → komut
         if len(iddia) < 2 or any(iddia in k for k in kanit):
             continue
-        if re.match(r"python3? ", iddia) and not re.search(r"→|çıktı", satir.split(iddia, 1)[-1], re.I):
+        komut = re.match(r"python3? ", iddia) or shutil.which(iddia.split()[0])  # PATH'te python olmayabilir
+        if komut and not re.search(r"→|çıktı", satir.split(iddia, 1)[-1], re.I):
             continue  # sonuç gösterilmeyen öneri
         supheli.append(iddia)
     return supheli
@@ -142,7 +146,11 @@ def calistirilmamis_komutlar(cevap, calisanlar):
 
     10n'de eksik testin baskın nedeni: model toplamayı çalıştırıp "Şimdi diğer işlemleri test edelim: `python …`"
     deyip bitiriyordu; sonuç iddiası olmadığı için kanitsiz_iddialar görmüyordu.
-    calisanlar: run_command'a gerçekten verilen komutlar (kanıt değil: alt görevin yazdığı komut çalıştırılmış sayılmaz).
+    10q: araç adıyla yazılmış sözde komutlar da (10o kodunda #14: "bu adımları takip et" + `read_file sandbox/oyun.py`,
+    `edit_file sandbox/menu.py …`, `run_command python …`). Sadece argümanlı olanlar (yol içeren): #12'de görev
+    araç adlarını listelemek, tek başına `read_file` normal.
+    calisanlar: run_command'a gerçekten verilen komutlar + diğer araçlar için "araç yol" (kanıt değil: alt görevin
+    yazdığı komut çalıştırılmış sayılmaz).
     """
     adaylar = []
     for dil, blok in re.findall(r"```(\w*)\n(.*?)```", cevap, re.S):
@@ -153,7 +161,13 @@ def calistirilmamis_komutlar(cevap, calisanlar):
     komutlar = []
     for a in adaylar:
         a = " ".join(re.sub(r"^\$\s*", "", a.strip()).split())
-        if re.match(r"python3? \S+\.py", a) and a not in calisan and a not in komutlar:
+        if a.startswith("run_command "):
+            a = a.split(" ", 1)[1].strip("'\"")
+        if m := re.match(r"(read_file|write_file|edit_file|list_files) (\S*[./]\S*)", a):
+            a = f"{m[1]} {m[2]}"  # metin/değişiklik argümanları karşılaştırmaya girmez, yol yeter
+        elif not re.match(r"python3? \S+\.py", a):
+            continue
+        if a not in calisan and a not in komutlar:
             komutlar.append(a)
     return komutlar
 
@@ -165,8 +179,8 @@ KANIT_NOTU = (
     "bir şeyin sonucunu yazma. Sonra cevabını sadece gerçek çıktılarla yeniden yaz."
 )
 DEVIR_NOTU = (
-    NOT_ONEKI + "Cevabında çalıştırmadığın komutlar var: {}. Bunları run_command ile kendin çalıştırabilirsin; "
-    "kullanıcıya bırakma. Test istendiyse her birini ayrı çalıştırıp gerçek çıktıyı yaz. Çalıştırmaman için bir "
+    NOT_ONEKI + "Cevabında kendin yapmadığın adımlar var: {}. Bunları araçlarınla (run_command, read_file, "
+    "write_file, edit_file) kendin yapabilirsin; kullanıcıya bırakma. Test istendiyse her birini ayrı çalıştırıp gerçek çıktıyı yaz. Çalıştırmaman için bir "
     "neden varsa (ör. tehlikeli, kullanıcı istemedi) bunu cevabında kısaca söyle."
 )
 
@@ -186,6 +200,8 @@ def kanit_kontrolu(mesajlar, cevap):
             kanit += [str(v) for v in arg.values()]
             if c.function.name == "run_command":
                 calisanlar.append(str(arg.get("command", "")))
+            elif "path" in arg:
+                calisanlar.append(f"{c.function.name} {arg['path']}")
     notlar = []
     if supheli := kanitsiz_iddialar(cevap or "", kanit):
         notlar.append(KANIT_NOTU.format(", ".join(f"'{x}'" for x in supheli)))

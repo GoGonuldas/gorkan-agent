@@ -1072,3 +1072,40 @@ Kural #11'de eksik testi biraz azaltıyordu (3/10 → 1/10) ama #12/#14'ü bozuy
 
 **Karar:** 10l-b kuralı geri alındı, 10m–10o kancası kalıyor. Sıradaki: kullanıcıya bırakma tespitini sözde araç
 komutlarına (`read_file …`, `write_file …`, `run_command python …`) genişletmek; #5 uyarılarına bakmak.
+
+### 10q — #5'te gereksiz uyarı giderildi; kanca sözde araç komutlarını da görüyor
+**Ne yaptık** (`step5_shell.py`):
+- `kanitsiz_iddialar`: sonuç gösterilmeyen komut önerisi istisnası `python …`'dan her komuta genişledi (ilk kelimesi
+  PATH'te olan; `python` PATH'te olmayabildiği için o ayrıca). Sebep: 10p tam ölçümünde #5'in 2/3 çalıştırması 2'şer
+  uyarı aldı — kancayı saran izleme betiğiyle görüldü: "kontrol etmek isterseniz `cat sandbox/merhaba.txt`" önerisi
+  çıktı iddiası sanılıyordu. Kayıtlarda yeniden oynatma: 661 aday iddiadan hiçbiri elenmiyor (gerçek işaret kaybı yok).
+- `calistirilmamis_komutlar`: araç adıyla yazılmış argümanlı sözde komutlar da (`read_file|write_file|edit_file|
+  list_files <yol>`, `run_command <komut>`); yapıldı mı diye gerçek çağrılarla (araç + yol / çalışan komut)
+  karşılaştırılıyor. Tek başına araç adı sayılmıyor (#12'de görev araç adlarını listelemek). Yeniden oynatma:
+  sadece 10o kodunun #14 başarısızlıklarında (`write_file sandbox/oyun.py`, `edit_file sandbox/menu.py`) tetikleniyor,
+  başarılı çalıştırmalarda yanlış alarm yok.
+- `DEVIR_NOTU`: "çalıştırmadığın komutlar" → "kendin yapmadığın adımlar … araçlarınla kendin yapabilirsin".
+
+**Ölçüm** (think açık):
+| tam #1–14 ×3 | 10p | 10q |
+|---|---|---|
+| başarı | 41/42 | 38/42 |
+| #5'te uyarı alan | 2/3 | 0/3 |
+| uydurma / eksik test | 1 / 1 | 1 / 0 |
+| ort. süre | 103 sn | 99 sn |
+Başarısızlar: #6-2 (`boyut` → `boyut=20` ile `boyut=20=10`), #12-3 (alt görevler araçları yanlış saydı), #14-2
+(dosyaları kökte aradı, "bulunamadı") — üçünde de kanca hiç uyarmadı, model hatası/gürültü. #11-3: iki uyarıdan sonra
+dosya bozuk kaldı, `8.0` uyduruldu.
+
+| #11 (tam + step5, ×5) | 10p | 10q |
+|---|---|---|
+| başarı | 10/10 | 10/10 |
+| eksik test | 3/10 | 3/10 |
+| uydurma (son cevap) | 1/10 | 2/10 |
+#13: 10/10.
+
+**Sınır:** sözde komut tespiti bu ölçümde sınanmadı — model hiç "bu adımları takip et" diye bırakmadı; dayanak şimdilik
+yeniden oynatma. Log sadece "not eklendi" yazdığından hangi notun çıktığı görülmüyor (ör. #3-2'de iki uyarı,
+20 sn → 110 sn; muhtemelen `stepN.py` deseni iddia sanıldı, kesin değil).
+
+**Karar:** 10q kalıyor (#5 düzeldi, gerileme kancaya bağlanamıyor). Sıradaki (10r): log'a notun kendisini yazdır.
