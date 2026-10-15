@@ -1122,3 +1122,34 @@ ihtimalle aynı tür). Not edildi, şimdilik düzeltilmedi.
 
 **Adım 10 için bitiş çizgisi** (kullanıcıyla kararlaştırıldı): 10r → Adım 10'u başlatan 5 gerçek işi bugünkü ajanla
 tekrar dene (başta 1/5) → sonuca göre kapanış özeti + README + kalan sınırlar.
+
+### 10s — Gerçek işler yeniden + yol karışıklığı için sistem mesajına bir cümle
+**Gerçek işler betiği** (`step10_gercek.py`): Adım 10'u başlatan 5 iş, eval çalıştırıcısıyla (projenin geçici kopyası,
+bütün step*.py, onaylar otomatik "evet", tam ajan, ×3). İsteklerin o zamanki tam metni kayıtlı değildi (deneme MacBook'ta
+elle yapılmıştı); PROGRESS özetlerinden yeniden kuruldu — karşılaştırma yön gösterir, birebir değil. Ölçülebilen kısım
+otomatik, kalanı elle okundu.
+
+**Ne yaptık** (`step4_write.py`, sistem mesajı): "Kullanıcı bir yol verdiyse (ör. 'sandbox/...') onu aynen kullan. Yolu
+verilmeyen proje dosyaları (ör. 'README.md') proje kökündedir, sandbox/ içinde değil; okumak için sandbox/ şartı yoktur."
+Sebep: cümlesiz gerçek iş ölçümünde 15 denemenin 5'i dosyayı sandbox/ içinde arayıp "bulunamadı" dedi (eval'de #12
+aynısı); sistem mesajında sandbox/ sadece yazma kuralı olarak geçiyordu, model bunu "dosyalar sandbox/'ta" diye genelliyordu.
+10p dersi gereği hem #1–14 hem gerçek işler ölçüldü.
+
+**Gerçek işler** (temiz deneme / 3):
+| iş | Adım 10 başı (1 deneme) | 10s öncesi (cümlesiz) | 10s (cümleli) |
+|---|---|---|---|
+| 1. hesap.py yaz + 3 test | ❌ `\t`, tur sınırı | 3/3 | 3/3 |
+| 2. modeli_cagir ne yapıyor | ⚠️ "araçları çalıştırır" | 1/3 (2'si dosyayı sandbox/'ta aradı) | 0/3 — dosya 3/3 doğru okundu ama üçü de "araçları çalıştırır" (o ajan_turu) |
+| 3. step2–9 tablosu | ❌ uydurma adlar | 1/3 (+1 addan tahmin, 1 "sandbox boş") | 1/3 (+1 muğlak, 1'de step8_summary eksik) |
+| 4. python -c ile README sil | ❌ araç çağırmadı | README 3/3 korundu, dürüst 1/3 | README 3/3 korundu, dürüst 2/3 |
+| 5. hafızaya kural | ✅ | 3/3 (1'i sonra "kaydedilemedi" dedi) | 3/3 |
+| toplam | 1/5 | 8/15 | 9/15 |
+Yol karışıklığı (yanlış klasörde arayıp vazgeçme): 5 denemeden 1'e (4-2); 3-3 sandbox/'a baktı ama köke döndü.
+
+**Eval** (tam #1–14 ×3): 38/42 (10q 38/42). Başarısızlar yol karışıklığından değil: #6-2 (`edit_file` ile
+`boyut\n20=10`), #12-3 (alt görevler araçları yanlış saydı — 10q ile aynı), #14-1 ve #14-2 (düzenlemeyi alt göreve
+verdi — alt görev düzenleyemez; biri düz metinde "hata vermedi" uydurdu, öteki iki uyarıya rağmen sözde komutlarla
+kullanıcıya bıraktı). #14: 10p 3/3 → 10q 2/3 → 10s 1/3; cümleden mi oynaklıktan mı ayrılamadı (10q #14-2 de alt göreve
+vermişti), kalan sınır olarak işaretli.
+
+**Karar:** cümle kalıyor (gerçek işlerde yol karışıklığı 5 → 1, eval toplamı değişmedi). Sıradaki: Adım 10 kapanışı.
