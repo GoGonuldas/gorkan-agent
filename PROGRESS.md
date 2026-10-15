@@ -616,7 +616,7 @@ Dosya: `eval_sonuclar/20261008-162226-qwen3_8b.json`.
   Apple'ın eskimiş saydığı ama çalışan bir araç; sadece macOS. Ajanın kendi araçları (write_file, read_file) sandbox'ta
   değil, Python kodundaki kilitlerle korunuyor.
 
-## Adım 10 — Gerçek deneme ve bulunan zayıflıklar
+## Adım 10 — Gerçek deneme ve bulunan zayıflıklar (2026-10-08 – 2026-10-15) ✅ (kapanış en altta)
 
 **Deneme** (step9_sandbox ajanı, qwen3:8b, think açık, projenin geçici kopyası, onaylar otomatik "evet"):
 | iş | sonuç |
@@ -1153,3 +1153,42 @@ kullanıcıya bıraktı). #14: 10p 3/3 → 10q 2/3 → 10s 1/3; cümleden mi oyn
 vermişti), kalan sınır olarak işaretli.
 
 **Karar:** cümle kalıyor (gerçek işlerde yol karışıklığı 5 → 1, eval toplamı değişmedi). Sıradaki: Adım 10 kapanışı.
+
+## Adım 10 — Kapanış (2026-10-15) ✅
+
+**Nereden nereye** (qwen3:8b, düşünme açık, tam ajan = Adım 9):
+| | Adım 10 başı | Kapanış |
+|---|---|---|
+| Gerçek işler (`step10_gercek.py`, 5 iş) | 1/5 (1 deneme, elle) | 9/15 (×3; istekler yeniden kuruldu) |
+| Eval | 30/30 (10 tek adımlık görev) | 38/42 (14 görev ×3; #11–14 gerçek işlerden türetilmiş çok adımlı görevler) |
+| README silme (onaylar "evet") | araç bile çağrılmadı | 3/3 işletim sistemi sandbox'ı korudu |
+| hesap.py yaz + test | `\t` hatası, aynı edit 8 kez, tur sınırı | 3/3, kendi testini çalıştırıp düzeltiyor |
+
+**Ne eklendi** (10a–10s): tekrar dedektörü (10a), onay ve özet düzeltmeleri (10c–d), eval'e çok adımlı görevler (10e),
+bağlam koruması (10h), `edit_file`'a `replace_all` (10i), önceki turların düşünmesini konuşmadan çıkarma (10j), eval'e
+uydurma ve eksik test sütunları (10k–l), döngüye bitiş kancası — kanıtsız çıktı iddiası ve kullanıcıya bırakılan
+adımlar için "ya yap ya çıkar" notu, iki hak (10m–o, 10q–r), sistem mesajında yol cümlesi (10s), gerçek işler betiği (10s).
+
+**Adım 10'un dersleri**
+- **Eval 30/30 derken gerçek işler 1/5'ti.** Tek adımlık görevler uzun işlerdeki döngüleri, kopyalanan örnekleri,
+  uydurmayı ölçmüyordu. Gerçek işlerden görev türetmek (10e) ve gerçek işleri ayrıca tekrar etmek (10s) gerekti.
+- **Küçük örneklem yanıltıyor.** 10k'da uydurma 0/12 → "kapandı" dendi; 10l'de aynı görevde 3/6. #14 aynı kodla 0/3–3/3
+  oynuyor. Karar vermeden önce ×3–×5 ve mümkünse aynı gün A/B.
+- **Sistem mesajına eklenen genel kural hedeflenmeyen görevleri bozabiliyor.** 10l-b'nin "testleri kendin çalıştır,
+  çalıştırmadığının sonucunu yazma" kuralı #11'e biraz yaradı ama #12/#14'ü bozdu (6/12); ayrı worktree'de eski kodla
+  A/B (10p) olmasa gürültü sanılacaktı. Kural değişikliği bütün görevlerde ölçülür.
+- **Kod düzeyindeki kontrol, kuraldan daha güvenilir — ama Goodhart riski var.** Bitiş kancası eval'in kendi uydurma
+  kontrolünü kullanıyor; etkisi bu yüzden bağımsız sütunla (eksik test) değerlendirildi. Kanca da yanlış alarm
+  verebiliyor (10q `cat …` önerisi, 10r yer tutucu `a b -`); notları log'a yazmak (10r) teşhisi yeniden koşturmasız yaptı.
+- **Ölçüm altyapısı da hata yapar:** Mac uykusu süreleri 20 kat şişirdi (10f, `caffeinate`), eval'in kanıtı ajanınkinden
+  farklıydı (10n), eval doğrulanmamış iddiaları başarı sayıyordu (10k). Ölçüme güvenmeden önce ölçümü ölç.
+
+**Kalan sınırlar** (bilinçli olarak açık bırakıldı; 8B modelin sınırı olabilir):
+1. **Düzenlemeyi alt göreve vermek** (#14, 10q–s): alt görev dosya düzenleyemez; model sonra ya uyduruyor ya kullanıcıya
+   bırakıyor. #14 son üç ölçümde 3/3 → 2/3 → 1/3.
+2. **Kodu yanlış anlama** (gerçek iş 2): `modeli_cagir`'ı doğru dosyadan okuyup yine "araçları çalıştırır" diyor (o `ajan_turu`).
+3. **Alt görevin okumadan tahmini** (gerçek iş 3, #12): dosyayı okumadan addan tahmin veya araçları yanlış sayma.
+4. **İki uyarıdan sonra uydurma** (#11 ~1–2/10) ve **düz metindeki tamamlanma iddiaları** ("hepsi hatasız çalıştı") — kanca görmüyor.
+5. **Kancada yanlış alarm**: yer tutucu kalıplar (`a b -`, muhtemelen `stepN.py`) çıktı iddiası sanılıyor.
+6. Diğer: sahte test (hesaplayıcıyı kullanmayan sabit çıktılar), düşünmesiz yedeğin sadece plan yazması, `edit_file`
+   eski metni yanlış seçince bozuk sonuç (#6: `boyut` → `boyut=20=10`).
